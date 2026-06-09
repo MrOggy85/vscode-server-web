@@ -1,7 +1,7 @@
 set -euo pipefail
 
 IMAGE="vscode-serve-web:local"
-PROJECT_DIR="$(pwd)"
+PROJECT_DIR="$(cd "${1:-.}" && pwd)"
 
 # Stable per-project names: vscode-<dirname>-<short hash of full path>.
 # Same approach as claude-in-docker/run.sh — hash disambiguates same-named dirs.
