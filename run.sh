@@ -34,7 +34,7 @@ docker run -d \
   -e PORT="$PORT" \
   -v "$DATA_VOLUME:/home/coder" \
   -v "$PROJECT_DIR:/workspace" \
-  -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/User/settings.json:ro" \
+  -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/Machine/settings.json" \
   --cap-drop ALL \
   --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add SETUID --cap-add SETGID \
   --security-opt no-new-privileges:true \
