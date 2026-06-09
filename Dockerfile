@@ -25,7 +25,7 @@ RUN cat > /usr/local/bin/entrypoint.sh <<'EOS' && chmod +x /usr/local/bin/entryp
 set -euo pipefail
 chown -R coder:coder /home/coder
 exec gosu coder env HOME=/home/coder code serve-web \
-  --host 0.0.0.0 --port "${PORT:-8000}" \
+  --host 0.0.0.0 --port "${PORT:?PORT env var is required}" \
   --without-connection-token \
   --accept-server-license-terms \
   --server-data-dir /home/coder/.vscode-server
