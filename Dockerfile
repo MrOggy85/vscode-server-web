@@ -18,12 +18,21 @@ RUN set -eux; \
 
 RUN useradd -m -u 1000 -s /bin/bash coder
 
+# Trust any mounted workspace — git 2.35.2+ rejects directories owned by a
+# different user, which breaks VS Code's source control view for bind mounts.
+RUN git config --system --add safe.directory '*'
+
+# Pre-create the settings directory so named volumes get it on first init,
+# ensuring Docker bind-mounts settings.json as a file rather than a directory.
+RUN mkdir -p /home/coder/.vscode-server/data/Machine \
+    && chown -R coder:coder /home/coder
+
 # Entrypoint: fix ownership of the persistent volume (runs as root), then drop
 # to the unprivileged 'coder' user before launching the editor itself.
 RUN cat > /usr/local/bin/entrypoint.sh <<'EOS' && chmod +x /usr/local/bin/entrypoint.sh
 #!/usr/bin/env bash
 set -euo pipefail
-find /home/coder -xdev -exec chown coder:coder {} +
+chown -R coder:coder /home/coder
 exec gosu coder env HOME=/home/coder code serve-web \
   --host 0.0.0.0 --port "${PORT:?PORT env var is required}" \
   --without-connection-token \
