@@ -1,10 +1,28 @@
 set -euo pipefail
 
 IMAGE="vscode-serve-web:local"
-CONTAINER="vscode-serve-web"
-PORT="${PORT:-8000}"
 PROJECT_DIR="$(pwd)"
-DATA_VOLUME="vscode-serve-web-data"   # persists the downloaded server, extensions, settings
+
+# Stable per-project names: vscode-<dirname>-<short hash of full path>.
+# Same approach as claude-in-docker/run.sh — hash disambiguates same-named dirs.
+path_hash() {
+  if command -v sha256sum >/dev/null 2>&1; then printf '%s' "$1" | sha256sum | cut -c1-10
+  else printf '%s' "$1" | shasum -a 256 | cut -c1-10; fi
+}
+SAFE_NAME="$(printf '%s' "$(basename "${PROJECT_DIR}")" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-')"
+SAFE_NAME="$(printf '%s' "${SAFE_NAME}" | sed -e 's/-\{2,\}/-/g' -e 's/^-//' -e 's/-$//')"
+HASH="$(path_hash "${PROJECT_DIR}")"
+
+CONTAINER="${VSCODE_CONTAINER:-vscode-${SAFE_NAME:-repo}-${HASH}}"
+DATA_VOLUME="${VSCODE_VOLUME:-vscode-${SAFE_NAME:-repo}-${HASH}}"
+
+# Derive a stable default port in 8000-8999 from the path hash; override with PORT=...
+DEFAULT_PORT=$(( 8000 + ( 0x$(printf '%s' "${HASH}" | cut -c1-3) % 1000 ) ))
+PORT="${PORT:-$DEFAULT_PORT}"
+
+echo ">> container:    ${CONTAINER}"
+echo ">> data volume:  ${DATA_VOLUME}"
+echo ">> port:         ${PORT}"
 
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
