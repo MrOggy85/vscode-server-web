@@ -16,6 +16,7 @@ HASH="$(path_hash "${PROJECT_DIR}")"
 
 CONTAINER="${VSCODE_CONTAINER:-vscode-${SAFE_NAME:-repo}-${HASH}}"
 DATA_VOLUME="${VSCODE_VOLUME:-vscode-${SAFE_NAME:-repo}-${HASH}}"
+PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
 # Derive a stable default port in 8000-8999 from the path hash; override with PORT=...
 DEFAULT_PORT=$(( 8000 + ( 0x$(printf '%s' "${HASH}" | cut -c1-3) % 1000 ) ))
@@ -24,6 +25,7 @@ PORT="${PORT:-$DEFAULT_PORT}"
 echo ">> container:    ${CONTAINER}"
 echo ">> data volume:  ${DATA_VOLUME}"
 echo ">> port:         ${PORT}"
+echo ">> project:      ${PROJECT_NAME}"
 
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
@@ -32,6 +34,7 @@ docker run -d \
   --restart unless-stopped \
   -p "127.0.0.1:${PORT}:${PORT}" \
   -e PORT="$PORT" \
+  -e PROJECT_NAME="$PROJECT_NAME" \
   -v "$DATA_VOLUME:/home/coder" \
   -v "$PROJECT_DIR:/workspace" \
   -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/Machine/settings.json" \

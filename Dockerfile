@@ -27,12 +27,31 @@ RUN git config --system --add safe.directory '*'
 RUN mkdir -p /home/coder/.vscode-server/data/Machine \
     && chown -R coder:coder /home/coder
 
-# Entrypoint: fix ownership of the persistent volume (runs as root), then drop
-# to the unprivileged 'coder' user before launching the editor itself.
+# Pre-download the VS Code web server package at build time so the first
+# container start is instant and manifest.json exists before launch.
+RUN gosu coder env HOME=/home/coder code serve-web \
+      --without-connection-token \
+      --accept-server-license-terms \
+      --server-data-dir /home/coder/.vscode-server \
+      --host 127.0.0.1 --port 19283 & \
+    until curl -s --max-time 2 -o /dev/null http://127.0.0.1:19283; do sleep 2; done; \
+    until find /home/coder -name "manifest.json" -path "*/resources/server/*" 2>/dev/null | grep -q .; do sleep 2; done; \
+    kill %1 2>/dev/null || true
+
+# Entrypoint: patch PWA manifest with project name, fix ownership, then launch.
 RUN cat > /usr/local/bin/entrypoint.sh <<'EOS' && chmod +x /usr/local/bin/entrypoint.sh
 #!/usr/bin/env bash
 set -euo pipefail
+
+MANIFEST=$(find /home/coder/.vscode/cli/serve-web -name "manifest.json" | head -1)
+sed -i \
+  -e "s|\"name\": \".*\"|\"name\": \"${PROJECT_NAME:-Code}\"|" \
+  -e "s|\"short_name\": \".*\"|\"short_name\": \"${PROJECT_NAME:-Code}\"|" \
+  -e "s|\"start_url\": \".*\"|\"start_url\": \"/?folder=/workspace\"|" \
+  "$MANIFEST"
+
 chown -R coder:coder /home/coder
+
 exec gosu coder env HOME=/home/coder code serve-web \
   --host 0.0.0.0 --port "${PORT:?PORT env var is required}" \
   --without-connection-token \
