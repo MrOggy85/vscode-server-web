@@ -1,6 +1,7 @@
 set -euo pipefail
 
 IMAGE="vscode-serve-web:local"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${1:-.}" && pwd)"
 
 # Stable per-project names: vscode-<dirname>-<short hash of full path>.
@@ -33,6 +34,7 @@ docker run -d \
   -e PORT="$PORT" \
   -v "$DATA_VOLUME:/home/coder" \
   -v "$PROJECT_DIR:/workspace" \
+  -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/User/settings.json:ro" \
   --cap-drop ALL \
   --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add SETUID --cap-add SETGID \
   --security-opt no-new-privileges:true \
