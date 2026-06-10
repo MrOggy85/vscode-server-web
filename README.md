@@ -36,3 +36,7 @@ Changes to `settings.json` take effect on the next `./run.sh` (the container is 
 ## Caveats
 
 **User Settings vs Remote Settings:** unlike a local VS Code install, "Open User Settings JSON" stores settings in the browser (per origin) and does not persist across devices or containers. The mounted `settings.json` is surfaced as "Open Remote Settings JSON" and is the persistent, authoritative source. Settings precedence: Machine (= Remote) > User > Workspace.
+
+## Troubleshooting
+
+See [docs/troubleshooting.md](docs/troubleshooting.md).

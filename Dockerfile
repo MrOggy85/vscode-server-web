@@ -43,7 +43,7 @@ RUN cat > /usr/local/bin/entrypoint.sh <<'EOS' && chmod +x /usr/local/bin/entryp
 #!/usr/bin/env bash
 set -euo pipefail
 
-MANIFEST=$(find /home/coder/.vscode/cli/serve-web -name "manifest.json" | head -1)
+MANIFEST=$(find /home/coder -name "manifest.json" -path "*/resources/server/*" | head -1)
 sed -i \
   -e "s|\"name\": \".*\"|\"name\": \"${PROJECT_NAME:-Code}\"|" \
   -e "s|\"short_name\": \".*\"|\"short_name\": \"${PROJECT_NAME:-Code}\"|" \
