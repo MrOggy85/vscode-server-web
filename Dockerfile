@@ -1,7 +1,7 @@
 FROM debian:bookworm-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git gosu \
+    && apt-get install -y --no-install-recommends ca-certificates curl git gosu unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Download Microsoft's official VS Code CLI for the container's architecture.
