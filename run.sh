@@ -55,6 +55,11 @@ echo ">> project:    ${PROJECT_NAME}"
 echo ">> killing any running container..."
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
+optional_mounts=()
+for f in .bash_aliases; do
+  [ -f "${SCRIPT_DIR}/${f}" ] && optional_mounts+=(-v "${SCRIPT_DIR}/${f}:/home/coder/${f}")
+done
+
 echo ">> run new container..."
 docker run -d \
   --name "$CONTAINER" \
@@ -65,6 +70,7 @@ docker run -d \
   -v "${CLI_VOLUME}:/home/coder/.vscode" \
   -v "$PROJECT_DIR:/workspace" \
   -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/Machine/settings.json" \
+  "${optional_mounts[@]+"${optional_mounts[@]}"}" \
   --cap-drop ALL \
   --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add SETUID --cap-add SETGID \
   --security-opt no-new-privileges:true \
