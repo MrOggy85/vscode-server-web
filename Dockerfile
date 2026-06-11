@@ -25,6 +25,9 @@ RUN git config --system --add safe.directory '*'
 RUN mkdir -p /home/coder/.vscode-server/data/Machine \
     && chown -R coder:coder /home/coder
 
+COPY install_additional_packages.sh /usr/local/bin/install_additional_packages.sh
+RUN bash /usr/local/bin/install_additional_packages.sh
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
