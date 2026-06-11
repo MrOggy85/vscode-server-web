@@ -2,6 +2,7 @@ set -euo pipefail
 
 IMAGE="vscode-serve-web:local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 PROJECT_DIR="$(cd "${1:-.}" && pwd)"
 
 # Stable per-project names: vscode-<dirname>-<short hash of full path>.
@@ -15,27 +16,29 @@ SAFE_NAME="$(printf '%s' "${SAFE_NAME}" | sed -e 's/-\{2,\}/-/g' -e 's/^-//' -e 
 HASH="$(path_hash "${PROJECT_DIR}")"
 
 CONTAINER="${VSCODE_CONTAINER:-vscode-${SAFE_NAME:-repo}-${HASH}}"
-DATA_VOLUME="${VSCODE_VOLUME:-vscode-${SAFE_NAME:-repo}-${HASH}}"
+CLI_VOLUME="${VSCODE_CLI_VOLUME:-vscode-cli}"
 PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
 # Derive a stable default port in 8000-8999 from the path hash; override with PORT=...
 DEFAULT_PORT=$(( 8000 + ( 0x$(printf '%s' "${HASH}" | cut -c1-3) % 1000 ) ))
 PORT="${PORT:-$DEFAULT_PORT}"
 
-echo ">> container:    ${CONTAINER}"
-echo ">> data volume:  ${DATA_VOLUME}"
-echo ">> port:         ${PORT}"
-echo ">> project:      ${PROJECT_NAME}"
+echo ">> container:  ${CONTAINER}"
+echo ">> cli volume: ${CLI_VOLUME}"
+echo ">> port:       ${PORT}"
+echo ">> project:    ${PROJECT_NAME}"
 
+echo ">> killing any running container..."
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
+echo ">> run new container..."
 docker run -d \
   --name "$CONTAINER" \
   --restart unless-stopped \
   -p "127.0.0.1:${PORT}:${PORT}" \
   -e PORT="$PORT" \
   -e PROJECT_NAME="$PROJECT_NAME" \
-  -v "$DATA_VOLUME:/home/coder" \
+  -v "${CLI_VOLUME}:/home/coder/.vscode" \
   -v "$PROJECT_DIR:/workspace" \
   -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/Machine/settings.json" \
   --cap-drop ALL \
@@ -44,7 +47,7 @@ docker run -d \
   "$IMAGE" >/dev/null
 
 URL="http://127.0.0.1:${PORT}/?folder=/workspace"
-echo ">> Container started. First load downloads the server, so give it a few seconds."
+echo ">> Container started."
 echo ">> Open: $URL"
 
 # Open the browser automatically (macOS uses `open`, Linux uses `xdg-open`).

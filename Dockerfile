@@ -22,21 +22,8 @@ RUN useradd -m -u 1000 -s /bin/bash coder
 # different user, which breaks VS Code's source control view for bind mounts.
 RUN git config --system --add safe.directory '*'
 
-# Pre-create the settings directory so named volumes get it on first init,
-# ensuring Docker bind-mounts settings.json as a file rather than a directory.
 RUN mkdir -p /home/coder/.vscode-server/data/Machine \
     && chown -R coder:coder /home/coder
-
-# Pre-download the VS Code web server package at build time so the first
-# container start is instant and manifest.json exists before launch.
-RUN gosu coder env HOME=/home/coder code serve-web \
-      --without-connection-token \
-      --accept-server-license-terms \
-      --server-data-dir /home/coder/.vscode-server \
-      --host 127.0.0.1 --port 19283 & \
-    until curl -s --max-time 2 -o /dev/null http://127.0.0.1:19283; do sleep 2; done; \
-    until find /home/coder -name "manifest.json" -path "*/resources/server/*" 2>/dev/null | grep -q .; do sleep 2; done; \
-    kill %1 2>/dev/null || true
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
