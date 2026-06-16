@@ -1,0 +1,9 @@
+# Outbound allowlist — copy to allowed-domains.txt (gitignored) and rebuild the image.
+# One hostname per line. Lines starting with # are ignored.
+# Wildcards are NOT supported — the firewall resolves each entry with dig.
+
+# VS Code CLI update checks and web server asset downloads
+update.code.visualstudio.com
+
+# VS Code extension marketplace
+marketplace.visualstudio.com

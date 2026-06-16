@@ -17,6 +17,8 @@ context_hash() {
     "${SCRIPT_DIR}/Dockerfile"
     "${SCRIPT_DIR}/entrypoint.sh"
     "${SCRIPT_DIR}/install_additional_packages.sh"
+    "${SCRIPT_DIR}/init-firewall.sh"
+    "${SCRIPT_DIR}/allowed-domains.txt"
   )
   local existing=()
   for f in "${files[@]}"; do [ -f "$f" ] && existing+=("$f"); done
@@ -73,6 +75,7 @@ docker run -d \
   "${optional_mounts[@]+"${optional_mounts[@]}"}" \
   --cap-drop ALL \
   --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add SETUID --cap-add SETGID \
+  --cap-add NET_ADMIN \
   --security-opt no-new-privileges:true \
   "$IMAGE" >/dev/null
 

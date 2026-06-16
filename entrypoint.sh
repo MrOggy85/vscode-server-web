@@ -3,6 +3,8 @@ set -euo pipefail
 
 : "${PORT:?PORT env var is required}"
 
+/usr/local/bin/init-firewall.sh "${PORT}/tcp"
+
 chown -R coder:coder /home/coder
 
 # Patch manifest.json once after the server is up. The CLI self-update and

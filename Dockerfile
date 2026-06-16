@@ -48,6 +48,12 @@ RUN mkdir -p /home/coder/.vscode-server/data/Machine \
 COPY install_additional_packages.sh /usr/local/bin/install_additional_packages.sh
 RUN bash /usr/local/bin/install_additional_packages.sh
 
+# Outbound firewall: allowed domains are baked in at build time; rules are
+# applied on each container start by the entrypoint (which runs as root).
+COPY allowed-domains.txt /etc/allowed-domains.txt
+COPY init-firewall.sh /usr/local/bin/init-firewall.sh
+RUN chmod +x /usr/local/bin/init-firewall.sh
+
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
