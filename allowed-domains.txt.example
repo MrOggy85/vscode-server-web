@@ -4,6 +4,8 @@
 
 # VS Code CLI update checks and web server asset downloads
 update.code.visualstudio.com
+# Actual download CDN (update.code.visualstudio.com redirects here for server bundles)
+vscode.download.prss.microsoft.com
 
 # VS Code extension marketplace
 marketplace.visualstudio.com
