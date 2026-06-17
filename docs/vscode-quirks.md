@@ -21,3 +21,48 @@ This happens on first start against a fresh CLI volume, or whenever the image is
 ```
 ./run.sh /path/to/project
 ```
+
+## PWA shows the previous project's name
+
+**Symptom:** After switching to a different project with `./run.sh`, the installed PWA still shows the old project name.
+
+**Cause:** Two independent caches can hold the stale name:
+
+1. **CLI volume** — the shared `vscode-cli` volume carries the `manifest.json` written by the previous project. If `code serve-web` reads it before the entrypoint patches it, the old name is served from the start.
+2. **Browser** — the browser caches the manifest for the origin (`http://127.0.0.1:<port>`), so even a correctly served manifest may not be picked up until the cache is cleared.
+
+The entrypoint patches the manifest synchronously before `exec`-ing VS Code to handle case 1. Case 2 requires a manual browser fix.
+
+**Fix (browser cache):** Clear site data for the origin in your browser, then reinstall the PWA.
+
+In Brave/Chrome:
+1. Navigate to the instance URL (`http://127.0.0.1:<port>`)
+2. Open DevTools → Application → Storage → click **Clear site data**
+3. Reload the page
+4. Reinstall the PWA from the address bar
+
+## Git source control view is broken (no diff, no file status)
+
+**Symptom:** The Source Control panel shows no changes or throws an error, even though the workspace has uncommitted changes.
+
+**Cause:** Git 2.35.2+ rejects operations in directories owned by a different user (`fatal: detected dubious ownership`). Because the workspace is a bind mount from the host, the directory owner (host UID) differs from the container user (`coder`, UID 1000), and git refuses to operate on it.
+
+**Fix:** Already handled in the image — the Dockerfile sets `safe.directory = *` in the system git config. If you see this with a custom image, add:
+
+```dockerfile
+RUN git config --system --add safe.directory '*'
+```
+
+## Settings changes have no effect
+
+**Symptom:** Edits to the mounted `settings.json` are ignored; the editor behaves as if no settings are applied.
+
+**Cause:** In `serve-web` mode, *User Settings* are stored in the **browser's IndexedDB** (per origin), not on the server filesystem. A `settings.json` mounted to the user-settings path on the container has no effect because VS Code never reads it there.
+
+**Fix:** Mount settings to the *Machine settings* path instead — machine settings live on the server filesystem and override user settings:
+
+```
+~/.vscode-server/data/Machine/settings.json
+```
+
+This is what `run.sh` does via the `-v` flag. If settings still seem ignored, check that the file is mounted to `data/Machine/`, not `data/User/`.
