@@ -14,8 +14,7 @@ RUN apt-get update \
     unzip \
     dnsutils \
     man-db \
-    iptables \
-    ipset \
+    nftables \
     shellcheck \
     less \
     tree \

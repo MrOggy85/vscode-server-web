@@ -45,8 +45,8 @@ CONTAINER="${VSCODE_CONTAINER:-vscode-${SAFE_NAME:-repo}-${HASH}}"
 CLI_VOLUME="${VSCODE_CLI_VOLUME:-vscode-cli}"
 PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
-# Derive a stable default port in 8000-8999 from the path hash; override with PORT=...
-DEFAULT_PORT=$(( 8000 + ( 0x$(printf '%s' "${HASH}" | cut -c1-3) % 1000 ) ))
+# Derive a stable default port in 10000-59999 from the path hash; override with PORT=...
+DEFAULT_PORT=$(( 10000 + ( 0x$(printf '%s' "${HASH}" | cut -c1-4) % 50000 ) ))
 PORT="${PORT:-$DEFAULT_PORT}"
 
 echo ">> container:  ${CONTAINER}"
