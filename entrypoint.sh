@@ -7,9 +7,7 @@ set -euo pipefail
 
 chown -R coder:coder /home/coder
 
-# Patch manifest.json once after the server is up. The CLI self-update and
-# server download both complete before HTTP becomes available, so a single
-# pass is sufficient. cat into the existing inode avoids sed -i fchown errors.
+# cat into the existing inode avoids sed -i fchown errors.
 patch_manifests() {
   find /home/coder/.vscode/cli/serve-web \
       -name "manifest.json" -path "*/resources/server/*" 2>/dev/null \
@@ -24,6 +22,12 @@ patch_manifests() {
   done
 }
 
+# Pre-patch: if the CLI volume already has a manifest from a previous project,
+# update it before VS Code starts so it never serves the stale name.
+patch_manifests
+
+# Post-patch: handles the first-run case where VS Code downloads the server
+# package after startup (file doesn't exist until HTTP is ready).
 (
   until curl -sf --max-time 2 -o /dev/null "http://127.0.0.1:${PORT}/"; do
     sleep 2
