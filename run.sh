@@ -43,7 +43,7 @@ HASH="$(path_hash "${PROJECT_DIR}")"
 
 CONTAINER="${VSCODE_CONTAINER:-vscode-${SAFE_NAME:-repo}-${HASH}}"
 CLI_VOLUME="${VSCODE_CLI_VOLUME:-vscode-cli}"
-CLAUDE_VOLUME="${CLAUDE_VOLUME:-claude-credentials}"
+CLAUDE_VOLUME="${CLAUDE_VOLUME:-vscode-claude-credentials}"
 PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
 # Derive a stable default port in 10000-59999 from the path hash; override with PORT=...
