@@ -23,6 +23,20 @@ RUN apt-get update \
     wget \
       && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 22 from NodeSource (GPG-verified signed apt repository).
+# Keeps the Node version under our control rather than inherited from the base image.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    gnupg \
+ && install -m 0755 -d /etc/apt/keyrings \
+ && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+    | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+ && printf 'deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main\n' \
+    > /etc/apt/sources.list.d/nodesource.list \
+ && apt-get update \
+ && apt-get install -y nodejs \
+ && rm -rf /var/lib/apt/lists/*
+
 # Download Microsoft's official VS Code CLI for the container's architecture.
 RUN set -eux; \
     case "$(uname -m)" in \
@@ -36,6 +50,31 @@ RUN set -eux; \
     chmod +x /usr/local/bin/code
 
 RUN useradd -m -u 1000 -s /bin/bash coder
+
+# Install Claude Code
+COPY package.json package-lock.json .npmrc /usr/local/
+RUN npm ci --prefix /usr/local \
+  && node /usr/local/node_modules/@anthropic-ai/claude-code/install.cjs \
+  && rm /usr/local/package.json /usr/local/package-lock.json /usr/local/.npmrc \
+  && echo 'export PATH="/usr/local/node_modules/.bin:$PATH"' >> /home/coder/.bashrc
+
+ENV DISABLE_AUTOUPDATER=1
+
+# Minimal ~/.claude.json baked into the image (NOT mounted from the host). Because
+# the container is ephemeral (--rm), this resets to a clean state every run:
+#   - onboarding marked complete (no setup wizard)
+#   - the repo's fixed mount path pre-trusted (no "trust this folder?" prompt)
+RUN cat > /home/coder/.claude.json <<'JSON'
+{
+  "hasCompletedOnboarding": true,
+  "projects": {
+    "/workspace": {
+      "hasTrustDialogAccepted": true,
+      "hasCompletedProjectOnboarding": true
+    }
+  }
+}
+JSON
 
 # Trust any mounted workspace — git 2.35.2+ rejects directories owned by a
 # different user, which breaks VS Code's source control view for bind mounts.

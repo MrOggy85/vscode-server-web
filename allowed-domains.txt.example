@@ -9,3 +9,6 @@ vscode.download.prss.microsoft.com
 
 # VS Code extension marketplace
 marketplace.visualstudio.com
+
+# Claude Code API
+api.anthropic.com

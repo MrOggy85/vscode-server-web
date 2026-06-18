@@ -43,6 +43,7 @@ HASH="$(path_hash "${PROJECT_DIR}")"
 
 CONTAINER="${VSCODE_CONTAINER:-vscode-${SAFE_NAME:-repo}-${HASH}}"
 CLI_VOLUME="${VSCODE_CLI_VOLUME:-vscode-cli}"
+CLAUDE_VOLUME="${CLAUDE_VOLUME:-claude-credentials}"
 PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
 # Derive a stable default port in 10000-59999 from the path hash; override with PORT=...
@@ -70,6 +71,7 @@ docker run -d \
   -e PORT="$PORT" \
   -e PROJECT_NAME="$PROJECT_NAME" \
   -v "${CLI_VOLUME}:/home/coder/.vscode" \
+  -v "${CLAUDE_VOLUME}:/home/coder/.claude" \
   -v "$PROJECT_DIR:/workspace" \
   -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/Machine/settings.json" \
   "${optional_mounts[@]+"${optional_mounts[@]}"}" \

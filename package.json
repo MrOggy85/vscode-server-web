@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "description": "Pinned npm packages installed globally inside the claude-in-docker image.",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "latest",
+    "typescript": "latest"
+  }
+}
