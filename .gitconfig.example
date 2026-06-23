@@ -1,0 +1,7 @@
+# Copy to .gitconfig (gitignored) and edit. This file is mounted read-only over
+# ~/.gitconfig inside the container, so git in the container uses this identity
+# instead of your host's global config.
+
+[user]
+	name = Your Name
+	email = you@example.com

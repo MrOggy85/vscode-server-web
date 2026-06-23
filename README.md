@@ -52,6 +52,19 @@ Instead, the keybindings are applied across all containers via a small server-si
 
 Changes take effect on the next `./run.sh`. The file is mounted (not baked into the image), so editing it does not trigger a rebuild.
 
+## Git identity
+
+Set the git `user.name` / `user.email` used by git inside the container via a `.gitconfig` in the repo root. It is mounted read-only over `~/.gitconfig` in the container.
+
+1. Copy the example file:
+   ```bash
+   cp .gitconfig.example .gitconfig
+   ```
+2. Edit `.gitconfig` with your name and email.
+3. `.gitconfig` is gitignored — your identity stays local.
+
+Changes take effect on the next `./run.sh`. The file is mounted (not baked into the image), so editing it does not trigger a rebuild.
+
 ## Additional packages
 
 `install_additional_packages.sh` is a gitignored script that runs during image build. Use it to install any tools your projects need. Example:

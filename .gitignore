@@ -4,3 +4,4 @@ install_additional_packages.sh
 allowed-domains.txt
 .vscode
 .bash_aliases
+.gitconfig

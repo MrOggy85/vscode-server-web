@@ -71,6 +71,13 @@ done
 [ -f "${SCRIPT_DIR}/keybindings.json" ] \
   && optional_mounts+=(-v "${SCRIPT_DIR}/keybindings.json:/home/coder/keybindings.json")
 
+# git identity (user.name / user.email) for git inside the container. Mounted
+# read-only: the entrypoint's chown is scoped to the volume/server paths and
+# never touches this file, so :ro is safe and nothing writes to it. Optional —
+# only mounted when the file exists.
+[ -f "${SCRIPT_DIR}/.gitconfig" ] \
+  && optional_mounts+=(-v "${SCRIPT_DIR}/.gitconfig:/home/coder/.gitconfig:ro")
+
 echo ">> run new container..."
 docker run -d \
   --name "$CONTAINER" \

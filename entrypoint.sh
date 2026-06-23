@@ -52,7 +52,12 @@ generate_keybindings_extension() {
 
 generate_keybindings_extension
 
-chown -R coder:coder /home/coder
+# Fix ownership only where it's actually needed: the two named volumes (a fresh
+# named volume mounts root-owned) and the server dir, where the keybindings
+# extension above was generated as root. Deliberately NOT a recursive chown over
+# all of /home/coder — that would hit the read-only .gitconfig bind mount and
+# abort the entrypoint under `set -e`.
+chown -R coder:coder /home/coder/.vscode /home/coder/.claude /home/coder/.vscode-server
 
 # cat into the existing inode avoids sed -i fchown errors.
 patch_manifests() {
