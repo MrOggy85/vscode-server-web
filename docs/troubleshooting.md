@@ -13,3 +13,11 @@ In Brave/Chrome:
 2. Open DevTools → Application → Storage → click **Clear site data**
 3. Reload the page
 4. Reinstall the PWA from the address bar
+
+## Installing an extension fails with ECONNREFUSED
+
+**Symptom:** Installing a Marketplace extension fails mid-install with `AggregateError [ECONNREFUSED]`.
+
+**Cause:** The extension package (`.vsix`) downloads from a per-publisher CDN host (`<publisher>.gallerycdn.vsassets.io`) that the outbound firewall refuses because it is not in `allowed-domains.txt`.
+
+**Fix:** Allowlist the publisher's download hosts and rebuild. See [docs/installing-extensions.md](installing-extensions.md).

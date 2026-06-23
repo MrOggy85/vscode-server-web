@@ -95,6 +95,10 @@ The image is rebuilt automatically by `run.sh` whenever this file changes.
 
 Claude Code is pre-installed and available from the VS Code terminal. See [docs/claude.md](docs/claude.md) for authentication and usage details.
 
+## Installing extensions
+
+Marketplace extensions download their package bytes from a per-publisher CDN host that the outbound firewall blocks by default — installs fail with `ECONNREFUSED` until you allowlist that host. See [docs/installing-extensions.md](docs/installing-extensions.md).
+
 ## Troubleshooting
 
 See [docs/troubleshooting.md](docs/troubleshooting.md).
