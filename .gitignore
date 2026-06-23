@@ -1,4 +1,5 @@
 settings.json
+keybindings.json
 install_additional_packages.sh
 allowed-domains.txt
 .vscode

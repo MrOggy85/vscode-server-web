@@ -66,3 +66,20 @@ RUN git config --system --add safe.directory '*'
 ```
 
 This is what `run.sh` does via the `-v` flag. If settings still seem ignored, check that the file is mounted to `data/Machine/`, not `data/User/`.
+
+## Keybindings can't be mounted like settings
+
+**Symptom:** Mounting a `keybindings.json` into the container (the obvious analogue to the `settings.json` mount) has no effect — none of the bindings apply.
+
+**Cause:** The Machine-settings escape hatch above does **not** exist for keybindings. VS Code keybindings are strictly *User-scoped*; there is no `data/Machine/keybindings.json`. In `serve-web`, User data lives in the browser's IndexedDB, so a `keybindings.json` placed anywhere on the server filesystem (`data/User/`, the home dir, etc.) is never read.
+
+**Fix:** Ship the bindings as a server-side **extension** instead. An extension that declares `contributes.keybindings` in its `package.json` registers those bindings in the workbench from the manifest — independent of the browser-stored User profile. The `entrypoint.sh` generates exactly such an extension from the mounted `keybindings.json`:
+
+- Writes `~/.vscode-server/extensions/local.container-keybindings-1.0.0/package.json` with the bindings under `contributes.keybindings`.
+- Registers it in `~/.vscode-server/extensions/extensions.json` (the server's user-extension registry).
+
+`serve-web` exposes no `--extensions-dir`; the user-extension directory is fixed at `<server-data-dir>/extensions`. Because `.vscode-server` is not a Docker volume, it resets from the image on every run, so the entrypoint can own that directory cleanly and rewrite the single-entry `extensions.json` without merging.
+
+Notes:
+- `keybindings.json` is parsed as **strict JSON** (via `jq`) — no `//` comments.
+- Contributed keybindings sit at default-keybinding priority. A binding the user sets in the browser-stored profile for the same key still wins; this is for shared defaults across containers, not for overriding per-user choices.

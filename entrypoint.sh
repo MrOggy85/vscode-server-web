@@ -5,6 +5,53 @@ set -euo pipefail
 
 /usr/local/bin/init-firewall.sh "${PORT}/tcp"
 
+# Apply keybindings via a generated extension.
+#
+# VS Code keybindings are strictly User-scoped — there is no Machine-scope
+# keybindings file the way there is for settings, and in serve-web all User
+# data lives in the browser (IndexedDB), not on the server filesystem. So a
+# mounted keybindings.json is never read. The only server-side mechanism is an
+# extension that declares the bindings via `contributes.keybindings`; those
+# register in the workbench from the manifest regardless of storage backend.
+#
+# `.vscode-server` is not a volume, so this dir resets from the image on every
+# run and we own it cleanly — no merge with user-installed extensions needed.
+generate_keybindings_extension() {
+  local src=/home/coder/keybindings.json
+  [ -s "$src" ] || return 0
+
+  local ext_root=/home/coder/.vscode-server/extensions
+  local id=local.container-keybindings ver=1.0.0
+  local ext_dir="${ext_root}/${id}-${ver}"
+
+  mkdir -p "$ext_dir"
+
+  # A purely declarative extension (no entry point) is loaded everywhere,
+  # including the web extension host, without activation.
+  jq -n --slurpfile kb "$src" '{
+    name: "container-keybindings",
+    displayName: "Container Keybindings",
+    publisher: "local",
+    version: "1.0.0",
+    engines: { vscode: "^1.0.0" },
+    contributes: { keybindings: $kb[0] }
+  }' > "${ext_dir}/package.json"
+
+  # extensions.json is the server's user-extension registry. We own the dir, so
+  # a fresh single-entry file is safe.
+  jq -n --arg dir "$ext_dir" --arg rel "${id}-${ver}" --arg id "$id" --arg ver "$ver" '[
+    {
+      identifier: { id: $id },
+      version: $ver,
+      location: { "$mid": 1, path: $dir, scheme: "file" },
+      relativeLocation: $rel,
+      metadata: { installedTimestamp: 0, source: "vsix" }
+    }
+  ]' > "${ext_root}/extensions.json"
+}
+
+generate_keybindings_extension
+
 chown -R coder:coder /home/coder
 
 # cat into the existing inode avoids sed -i fchown errors.

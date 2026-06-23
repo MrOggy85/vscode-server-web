@@ -63,6 +63,14 @@ for f in .bash_aliases; do
   [ -f "${SCRIPT_DIR}/${f}" ] && optional_mounts+=(-v "${SCRIPT_DIR}/${f}:/home/coder/${f}")
 done
 
+# Keybindings can't be mounted like settings.json: VS Code keybindings are
+# strictly User-scoped (no Machine path), and in serve-web User data lives in
+# the browser, not the filesystem. Instead we hand the raw file to the
+# entrypoint, which turns it into a keybinding-contributing extension on the
+# server side. Optional — only mounted when the file exists.
+[ -f "${SCRIPT_DIR}/keybindings.json" ] \
+  && optional_mounts+=(-v "${SCRIPT_DIR}/keybindings.json:/home/coder/keybindings.json")
+
 echo ">> run new container..."
 docker run -d \
   --name "$CONTAINER" \

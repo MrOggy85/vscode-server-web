@@ -37,6 +37,21 @@ VS Code user settings are loaded from `settings.json` in this repo and mounted i
 
 Changes to `settings.json` take effect on the next `./run.sh` (the container is recreated each run).
 
+## Keybindings
+
+Keybindings can't be mounted like `settings.json`. VS Code keybindings are strictly *User-scoped* (there is no Machine-scope keybindings file), and in `serve-web` all User data lives in the browser, not on the server filesystem — so a mounted `keybindings.json` is simply never read. See [docs/vscode-quirks.md](docs/vscode-quirks.md) for the full explanation.
+
+Instead, the keybindings are applied across all containers via a small server-side extension that the entrypoint generates from your `keybindings.json` at startup.
+
+1. Copy the example file:
+   ```bash
+   cp keybindings.json.example keybindings.json
+   ```
+2. Edit `keybindings.json` — it is a plain JSON array of `{ "key", "command" }` entries, same as VS Code's `keybindings.json` (no `//` comments — it is parsed as strict JSON).
+3. `keybindings.json` is gitignored — your personal bindings stay local.
+
+Changes take effect on the next `./run.sh`. The file is mounted (not baked into the image), so editing it does not trigger a rebuild.
+
 ## Additional packages
 
 `install_additional_packages.sh` is a gitignored script that runs during image build. Use it to install any tools your projects need. Example:
