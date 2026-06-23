@@ -59,6 +59,10 @@ The image is rebuilt automatically by `run.sh` whenever this file changes.
 
 **User Settings vs Remote Settings:** unlike a local VS Code install, "Open User Settings JSON" stores settings in the browser (per origin) and does not persist across devices or containers. The mounted `settings.json` is surfaced as "Open Remote Settings JSON" and is the persistent, authoritative source. Settings precedence: Machine (= Remote) > User > Workspace.
 
+## Managing instances
+
+`./vsc` lists, stops, and tears down running instances and their volumes. See [docs/managing-instances.md](docs/managing-instances.md).
+
 ## Claude Code
 
 Claude Code is pre-installed and available from the VS Code terminal. See [docs/claude.md](docs/claude.md) for authentication and usage details.

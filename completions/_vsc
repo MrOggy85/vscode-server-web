@@ -1,0 +1,62 @@
+#compdef vsc
+# zsh completion for the `vsc` CLI.
+#
+# Install: see the "Shell completion" section in README.md. In short, put this
+# file's directory on $fpath before compinit, e.g. add to ~/.zshrc:
+#
+#   fpath=(/path/to/repo/completions $fpath)
+#   autoload -Uz compinit && compinit
+#
+# Works for `vsc`, `./vsc`, and `/abs/path/vsc` (zsh falls back to the basename).
+
+# Complete the project folder names + container names of existing instances.
+_vsc_instances() {
+  (( $+commands[docker] )) || return 0
+
+  local -a names folders
+  local n f
+  for n in ${(f)"$(docker ps -a --filter 'name=vscode-' --format '{{.Names}}' 2>/dev/null)"}; do
+    [[ $n == vscode-* ]] || continue
+    names+=$n
+    f=$(docker inspect "$n" --format \
+        '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' 2>/dev/null)
+    [[ -n $f ]] && folders+=${f:t}
+  done
+
+  (( ${#names} ))   && _describe -t containers 'container' names
+  (( ${#folders} )) && _describe -t folders    'folder'    folders
+}
+
+_vsc() {
+  local curcontext="$curcontext" state line
+  local -a cmds
+  cmds=(
+    'ls:list instances (status, port, folder, volumes)'
+    'stop:stop and remove a running instance (container only)'
+    'rm-volumes:remove the named volumes attached to an instance'
+    'destroy:stop the instance, then remove its volumes'
+    'help:show usage'
+  )
+
+  _arguments -C \
+    '(-y --yes)'{-y,--yes}'[skip confirmation prompts]' \
+    '(-f --force)'{-f,--force}'[also remove volumes shared with other instances]' \
+    '(-h --help)'{-h,--help}'[show usage]' \
+    '1: :->cmd' \
+    '*:: :->args'
+
+  case $state in
+    cmd)
+      _describe -t commands 'vsc command' cmds
+      ;;
+    args)
+      case ${line[1]} in
+        stop|rm|rm-volumes|volumes|destroy)
+          _vsc_instances
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_vsc "$@"
