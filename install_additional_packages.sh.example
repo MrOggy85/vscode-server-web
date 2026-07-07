@@ -1,2 +1,9 @@
 #!/bin/bash
 echo "no additional packages to install"
+
+# This script runs as root during the image build, so anything installed above
+# that writes under /home/coder (e.g. nvm's .nvm dir) lands root-owned. Hand the
+# whole home dir back to coder as the final step, so runtime tools (npm, nvm,
+# ...) can write their caches. Keep new installs that touch the home dir ABOVE
+# this line. System-wide installs under /usr/local stay root-owned by design.
+chown -R coder:coder /home/coder
