@@ -5,4 +5,5 @@ allowed-domains.txt
 .vscode
 .bash_aliases
 .gitconfig
+.gitignore_global
 .claude

@@ -65,6 +65,10 @@ Set the git `user.name` / `user.email` used by git inside the container via a `.
 
 Changes take effect on the next `./run.sh`. The file is mounted (not baked into the image), so editing it does not trigger a rebuild.
 
+## Global gitignore
+
+Optional user-level gitignore applied to every repo in the container. `cp .gitignore_global.example .gitignore_global`, then edit. Mounted read-only at `~/.config/git/ignore` (read automatically via the XDG convention). Gitignored; mounted only when it exists.
+
 ## Additional packages
 
 `install_additional_packages.sh` is a gitignored script that runs during image build. Use it to install any tools your projects need. Example:

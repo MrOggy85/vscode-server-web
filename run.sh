@@ -78,6 +78,12 @@ done
 [ -f "${SCRIPT_DIR}/.gitconfig" ] \
   && optional_mounts+=(-v "${SCRIPT_DIR}/.gitconfig:/home/coder/.gitconfig:ro")
 
+# Global (user-level) gitignore. Mounted read-only at ~/.config/git/ignore, which
+# git reads automatically when core.excludesFile is unset (the XDG convention), so
+# no .gitconfig entry is required. Optional — only mounted when the file exists.
+[ -f "${SCRIPT_DIR}/.gitignore_global" ] \
+  && optional_mounts+=(-v "${SCRIPT_DIR}/.gitignore_global:/home/coder/.config/git/ignore:ro")
+
 echo ">> run new container..."
 docker run -d \
   --name "$CONTAINER" \
