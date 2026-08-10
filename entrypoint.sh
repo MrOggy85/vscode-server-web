@@ -87,8 +87,16 @@ patch_manifests
   patch_manifests
 ) &
 
+# --disable-telemetry, not the `telemetry.telemetryLevel` setting: the mounted
+# Machine settings.json only controls the *send gate* (`getTelemetryLevel`), so
+# the server still builds its 1DS appender and keeps POSTing to
+# mobile.events.data.microsoft.com — which the firewall rejects, producing an
+# endless "OneCollector/1.0 - error POST connect ECONNREFUSED" stream in the
+# container log. The CLI forwards this flag to the server child, where
+# `supportsTelemetry()` short-circuits and no appender is created at all.
 exec gosu coder env HOME=/home/coder code serve-web \
   --host 0.0.0.0 --port "${PORT}" \
   --without-connection-token \
   --accept-server-license-terms \
+  --disable-telemetry \
   --server-data-dir /home/coder/.vscode-server
