@@ -20,12 +20,68 @@ set -euo pipefail
 # Flags:
 #   -y, --yes      skip confirmation prompts
 #   -f, --force    (rm-volumes/destroy) also remove volumes shared with other instances
+#       --no-color disable colour (NO_COLOR=1 does the same)
 
 PREFIX="vscode-"
 
+# ---- colour ----------------------------------------------------------------
+#
+# Palette semantics, same grammar as claude-in-docker/scripts/colors.sh: dim for
+# structure (the ">>" marker, parenthetical hints), cyan for the value being
+# named (container, volume, path, port), green for a confirmation, yellow for a
+# warning, bold red for an error.
+#
+# Colour is decided twice, once per stream, because the two are used for
+# different things here and can be redirected independently: `vsc ls | less`
+# should drop colour from the table while a warning on the still-attached
+# stderr keeps it. C_* is the stdout palette, E_* the stderr one.
+C_DIM='' C_VALUE='' C_OK='' C_WARN='' C_ALERT='' C_HEAD='' C_OFF=''
+E_DIM='' E_VALUE='' E_WARN='' E_FAIL='' E_OFF=''
+
+# Can the given fd render colour? Most explicit wins: NO_COLOR (no-color.org) is
+# the user saying never, CLICOLOR_FORCE the user saying always — the latter beats
+# a merely inferred inability, since TERM=dumb is an ambient default rather than
+# a considered choice. Absent both, believe the stream.
+_color_ok() { # <fd>
+  if   [[ -n "${NO_COLOR:-}" ]];       then return 1
+  elif [[ -n "${CLICOLOR_FORCE:-}" ]]; then return 0
+  elif [[ "${TERM:-}" == "dumb" ]];    then return 1
+  elif [[ -t "$1" ]];                  then return 0
+  fi
+  return 1
+}
+
+color_init() {
+  C_DIM='' C_VALUE='' C_OK='' C_WARN='' C_ALERT='' C_HEAD='' C_OFF=''
+  E_DIM='' E_VALUE='' E_WARN='' E_FAIL='' E_OFF=''
+  if _color_ok 1; then
+    C_DIM=$'\033[2m' C_VALUE=$'\033[36m' C_OK=$'\033[32m'
+    C_WARN=$'\033[33m' C_ALERT=$'\033[1;31m' C_HEAD=$'\033[1m' C_OFF=$'\033[0m'
+  fi
+  if _color_ok 2; then
+    E_DIM=$'\033[2m' E_VALUE=$'\033[36m'
+    E_WARN=$'\033[33m' E_FAIL=$'\033[1;31m' E_OFF=$'\033[0m'
+  fi
+}
+color_init
+
+# ---- emitters --------------------------------------------------------------
+
+# Plain line on stderr, printed verbatim.
 err()  { printf '%s\n' "$*" >&2; }
-die()  { err "Error: $*"; exit 1; }
-note() { printf '>> %s\n' "$*"; }
+# Indented continuation under a heading on stderr.
+cont() { printf '  %s\n' "$*" >&2; }
+die()  { printf '%s %s\n' "${E_FAIL}Error:${E_OFF}" "$*" >&2; exit 1; }
+# ">> <text>" — progress on stdout.
+note() { printf '%s %s\n' "${C_DIM}>>${C_OFF}" "$*"; }
+# ">> <text>" in green — something finished, not just progress.
+ok()   { printf '%s %s%s%s\n' "${C_DIM}>>${C_OFF}" "$C_OK" "$*" "$C_OFF"; }
+# "<label>: <value>" on stderr — names a thing (container, volume, path).
+ekv() { # <label> <value> [hint]
+  local line="$1: ${E_VALUE}$2${E_OFF}"
+  [[ -n "${3:-}" ]] && line+="  ${E_DIM}($3)${E_OFF}"
+  printf '%s\n' "$line" >&2
+}
 
 require_docker() { command -v docker >/dev/null 2>&1 || die "docker not found on PATH"; }
 
@@ -38,6 +94,18 @@ instances() {
 }
 
 status_of() { docker inspect "$1" --format '{{.State.Status}}' 2>/dev/null || echo unknown; }
+
+# Colour for a container status. `exited` is dim, not red: a stopped instance is
+# the normal resting state here, not a failure. Red is reserved for `dead`, which
+# means the daemon could not clean it up.
+status_color() { # <status>
+  case "$1" in
+    running)                   printf '%s' "$C_OK";;
+    dead)                      printf '%s' "$C_ALERT";;
+    created|paused|restarting) printf '%s' "$C_WARN";;
+    *)                         printf '%s' "$C_DIM";;
+  esac
+}
 
 # Published host port; falls back to the PORT env baked into the container.
 port_of() {
@@ -91,8 +159,8 @@ resolve_one() {
   case "${#matches[@]}" in
     0) die "no instance matches '$sel' (try: vsc ls)";;
     1) printf '%s\n' "${matches[0]}";;
-    *) err "'$sel' is ambiguous; matches:"
-       printf '  %s\n' "${matches[@]}" >&2
+    *) printf '%s %s\n' "${E_FAIL}Error:${E_OFF}" "'$sel' is ambiguous; matches:" >&2
+       for n in "${matches[@]}"; do cont "${E_VALUE}${n}${E_OFF}"; done
        exit 1;;
   esac
 }
@@ -100,7 +168,7 @@ resolve_one() {
 confirm() {
   [[ "${ASSUME_YES:-0}" == 1 ]] && return 0
   local reply
-  printf '%s [y/N] ' "$1"
+  printf '%s %s ' "$1" "${C_DIM}[y/N]${C_OFF}"
   read -r reply || true
   [[ "$reply" == [yY] || "$reply" == [yY][eE][sS] ]]
 }
@@ -109,7 +177,9 @@ confirm() {
 
 cmd_ls() {
   local any=0 n st pt fl vols
-  printf '%-34s %-9s %-7s %-40s %s\n' "CONTAINER" "STATUS" "PORT" "FOLDER" "VOLUMES"
+  local f_name f_st f_pt f_fl
+  printf '%s%-34s %-9s %-7s %-40s %s%s\n' \
+    "$C_HEAD" "CONTAINER" "STATUS" "PORT" "FOLDER" "VOLUMES" "$C_OFF"
   while IFS= read -r n; do
     [[ -z "$n" ]] && continue
     any=1
@@ -117,7 +187,18 @@ cmd_ls() {
     pt=$(port_of "$n"); pt=${pt:-"-"}
     fl=$(folder_of "$n"); fl=${fl:-"-"}
     vols=$(volumes_of "$n" | paste -sd, -); vols=${vols:-"-"}
-    printf '%-34s %-9s %-7s %-40s %s\n' "$n" "$st" "$pt" "$fl" "$vols"
+    # Pad first, colour second: escape sequences are zero-width on screen but
+    # count as characters to printf, so %-34s on a coloured string misaligns.
+    printf -v f_name '%-34s' "$n"
+    printf -v f_st   '%-9s'  "$st"
+    printf -v f_pt   '%-7s'  "$pt"
+    printf -v f_fl   '%-40s' "$fl"
+    printf '%s %s %s %s %s\n' \
+      "${C_VALUE}${f_name}${C_OFF}" \
+      "$(status_color "$st")${f_st}${C_OFF}" \
+      "${f_pt}" \
+      "${C_DIM}${f_fl}${C_OFF}" \
+      "${C_DIM}${vols}${C_OFF}"
   done < <(instances)
   [[ "$any" == 0 ]] && note "no vscode instances found"
   return 0
@@ -126,11 +207,38 @@ cmd_ls() {
 cmd_stop() {
   [[ $# -ge 1 ]] || die "usage: vsc stop <selector>"
   local name; name=$(resolve_one "$1")
-  if confirm "Stop and remove container '$name'?"; then
+  if confirm "Stop and remove container ${C_VALUE}${name}${C_OFF}?"; then
     docker rm -f "$name" >/dev/null
-    note "removed container $name"
+    ok "removed container $name"
   else
     note "aborted"
+  fi
+}
+
+# Remove one volume, honouring --force for volumes shared with other containers.
+# Prints its own progress; returns 0 on removal, 1 on skip.
+remove_one_volume() { # <volume> <owning-container>
+  local v="$1" name="$2" others
+  others=$(volume_other_users "$v" "$name")
+  if [[ -n "$others" && "${FORCE:-0}" != 1 ]]; then
+    cont "${E_WARN}skip${E_OFF} ${E_VALUE}${v}${E_OFF} ${E_DIM}(shared with: $(printf '%s' "$others" | paste -sd, -) — use --force to remove)${E_OFF}"
+    return 1
+  fi
+  if docker volume rm "$v" >/dev/null 2>&1; then
+    ok "removed volume $v"
+    return 0
+  fi
+  cont "${E_FAIL}could not remove${E_OFF} ${E_VALUE}${v}${E_OFF} ${E_DIM}(still in use?)${E_OFF}"
+  return 1
+}
+
+# ">> volumes removed: N, skipped: M" — green when nothing was skipped.
+volume_tally() { # <removed> <skipped>
+  if [[ "$2" == 0 ]]; then
+    ok "volumes removed: $1, skipped: $2"
+  else
+    printf '%s volumes removed: %s%s%s, skipped: %s%s%s\n' \
+      "${C_DIM}>>${C_OFF}" "$C_OK" "$1" "$C_OFF" "$C_WARN" "$2" "$C_OFF"
   fi
 }
 
@@ -138,23 +246,13 @@ cmd_stop() {
 # instances unless --force. Requires the volume to be free (docker refuses to
 # remove an in-use volume), so the owning container must be gone first.
 remove_volumes_of() {
-  local name="$1" v others
+  local name="$1" v
   local removed=0 skipped=0
   while IFS= read -r v; do
     [[ -z "$v" ]] && continue
-    others=$(volume_other_users "$v" "$name")
-    if [[ -n "$others" && "${FORCE:-0}" != 1 ]]; then
-      err "  skip $v (shared with: $(printf '%s' "$others" | paste -sd, -)) — use --force to remove"
-      skipped=$((skipped+1))
-      continue
-    fi
-    if docker volume rm "$v" >/dev/null 2>&1; then
-      note "removed volume $v"; removed=$((removed+1))
-    else
-      err "  could not remove $v (still in use?)"; skipped=$((skipped+1))
-    fi
+    if remove_one_volume "$v" "$name"; then removed=$((removed+1)); else skipped=$((skipped+1)); fi
   done < <(volumes_of "$name")
-  note "volumes removed: $removed, skipped: $skipped"
+  volume_tally "$removed" "$skipped"
 }
 
 cmd_rm_volumes() {
@@ -162,7 +260,9 @@ cmd_rm_volumes() {
   local name; name=$(resolve_one "$1")
   local vols; vols=$(volumes_of "$name")
   [[ -z "$vols" ]] && { note "no named volumes attached to $name"; return 0; }
-  err "Volumes attached to $name:"; printf '  %s\n' $vols >&2
+  err "Volumes attached to ${E_VALUE}${name}${E_OFF}:"
+  local v
+  for v in $vols; do cont "${E_VALUE}${v}${E_OFF}"; done
   if confirm "Remove these volumes?"; then
     remove_volumes_of "$name"
   else
@@ -181,52 +281,47 @@ cmd_destroy() {
     [[ "$v" == "vscode-cli" || "$v" == "vscode-claude-credentials" ]] && continue
     vols+="$v "
   done
-  err "About to destroy instance: $name"
-  err "  folder (bind mount, NOT deleted): $(folder_of "$name" || true)"
-  err "  shared volumes kept: vscode-cli, vscode-claude-credentials"
-  [[ -n "$vols" ]] && { err "  volumes to remove:"; printf '    %s\n' $vols >&2; }
+  ekv "About to destroy instance" "$name"
+  ekv "  folder" "$(folder_of "$name" || true)" "bind mount, NOT deleted"
+  ekv "  shared volumes kept" "vscode-cli, vscode-claude-credentials"
+  if [[ -n "$vols" ]]; then
+    err "  volumes to remove:"
+    for v in $vols; do cont "  ${E_VALUE}${v}${E_OFF}"; done
+  fi
   confirm "Stop the container and remove its volumes?" || { note "aborted"; return 0; }
 
   docker rm -f "$name" >/dev/null
-  note "removed container $name"
+  ok "removed container $name"
 
-  local others removed=0 skipped=0
+  local removed=0 skipped=0
   for v in $vols; do
-    others=$(volume_other_users "$v" "$name")
-    if [[ -n "$others" && "${FORCE:-0}" != 1 ]]; then
-      err "  skip $v (shared with: $(printf '%s' "$others" | paste -sd, -)) — use --force to remove"
-      skipped=$((skipped+1)); continue
-    fi
-    if docker volume rm "$v" >/dev/null 2>&1; then
-      note "removed volume $v"; removed=$((removed+1))
-    else
-      err "  could not remove $v (still in use?)"; skipped=$((skipped+1))
-    fi
+    if remove_one_volume "$v" "$name"; then removed=$((removed+1)); else skipped=$((skipped+1)); fi
   done
-  note "volumes removed: $removed, skipped: $skipped"
+  volume_tally "$removed" "$skipped"
 }
 
 usage() {
-  cat <<'EOF'
-vsc — manage VS Code serve-web instances created by run.sh
+  cat <<EOF
+${C_HEAD}vsc${C_OFF} — manage VS Code serve-web instances created by run.sh
 
-An "instance" is a docker container named `vscode-<folder>-<hash>` (see run.sh).
+An "instance" is a docker container named ${C_VALUE}vscode-<folder>-<hash>${C_OFF} (see run.sh).
 Each instance mounts the project folder as a bind mount at /workspace (your
 source code — never deleted here) plus named volumes (vscode-cli,
 vscode-claude-credentials) which are SHARED across all instances.
 
-Commands:
-  vsc ls                      list instances (status, port, folder, volumes)
-  vsc stop       <selector>   stop and remove a running instance (container only)
-  vsc rm-volumes <selector>   remove the named volumes attached to an instance
-  vsc destroy    <selector>   stop the instance, then remove its volumes
+${C_HEAD}Commands:${C_OFF}
+  ${C_VALUE}vsc ls${C_OFF}                      list instances (status, port, folder, volumes)
+  ${C_VALUE}vsc stop${C_OFF}       <selector>   stop and remove a running instance (container only)
+  ${C_VALUE}vsc rm-volumes${C_OFF} <selector>   remove the named volumes attached to an instance
+  ${C_VALUE}vsc destroy${C_OFF}    <selector>   stop the instance, then remove its volumes
 
 <selector> matches an exact container name, or a substring of the container
 name or the project folder name. Ambiguous matches are rejected.
 
-Flags:
-  -y, --yes     skip confirmation prompts
-  -f, --force   (rm-volumes/destroy) also remove volumes shared with other instances
+${C_HEAD}Flags:${C_OFF}
+  -y, --yes      skip confirmation prompts
+  -f, --force    (rm-volumes/destroy) also remove volumes shared with other instances
+      --no-color disable colour (NO_COLOR=1 does the same)
 EOF
 }
 
@@ -239,6 +334,7 @@ for a in "$@"; do
   case "$a" in
     -y|--yes)   ASSUME_YES=1;;
     -f|--force) FORCE=1;;
+    --no-color) NO_COLOR=1; color_init;;
     -h|--help)  usage; exit 0;;
     *)          POS+=("$a");;
   esac
@@ -258,5 +354,5 @@ case "$cmd" in
   stop|rm)            cmd_stop "${rest[@]+"${rest[@]}"}";;
   rm-volumes|volumes) cmd_rm_volumes "${rest[@]+"${rest[@]}"}";;
   destroy)            cmd_destroy "${rest[@]+"${rest[@]}"}";;
-  *)                  err "unknown command: $cmd"; usage; exit 1;;
+  *)                  err "${E_FAIL}unknown command:${E_OFF} $cmd"; usage; exit 1;;
 esac

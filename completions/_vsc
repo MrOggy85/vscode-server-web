@@ -41,6 +41,7 @@ _vsc() {
   _arguments -C \
     '(-y --yes)'{-y,--yes}'[skip confirmation prompts]' \
     '(-f --force)'{-f,--force}'[also remove volumes shared with other instances]' \
+    '--no-color[disable colour output]' \
     '(-h --help)'{-h,--help}'[show usage]' \
     '1: :->cmd' \
     '*:: :->args'

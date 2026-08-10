@@ -36,6 +36,20 @@ selector matches more than one instance, `vsc` lists them and aborts.
 - `-y`, `--yes` — skip confirmation prompts.
 - `-f`, `--force` — also remove volumes shared with *other* instances
   (`rm-volumes` only; see the protected-volume note below).
+- `--no-color` — disable colour.
+
+### Colour
+
+Output is colour-coded: cyan for the thing being named (container, volume,
+path), green for a completed action, yellow for a skip, bold red for an error,
+dim for structure and hints. In `vsc ls` the status column is green for
+`running`, yellow for `created`/`paused`/`restarting`, red for `dead`, dim
+otherwise.
+
+Colour is decided per stream, so `vsc ls | less` drops it from the table while
+warnings on the still-attached stderr keep it. `NO_COLOR=1` (or `--no-color`)
+turns it off, `CLICOLOR_FORCE=1` turns it on regardless, and `TERM=dumb`
+disables it.
 
 ## How removal stays safe
 
