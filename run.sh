@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 set -euo pipefail
 
 IMAGE="vscode-serve-web:local"
@@ -59,9 +60,11 @@ echo ">> killing any running container..."
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
 optional_mounts=()
-for f in .bash_aliases; do
-  [ -f "${SCRIPT_DIR}/${f}" ] && optional_mounts+=(-v "${SCRIPT_DIR}/${f}:/home/coder/${f}")
-done
+
+# Shell aliases for the integrated terminal. Optional — only mounted when the
+# file exists.
+[ -f "${SCRIPT_DIR}/.bash_aliases" ] \
+  && optional_mounts+=(-v "${SCRIPT_DIR}/.bash_aliases:/home/coder/.bash_aliases")
 
 # Keybindings can't be mounted like settings.json: VS Code keybindings are
 # strictly User-scoped (no Machine path), and in serve-web User data lives in

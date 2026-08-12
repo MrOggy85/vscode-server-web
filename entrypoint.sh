@@ -65,11 +65,17 @@ patch_manifests() {
       -name "manifest.json" -path "*/resources/server/*" 2>/dev/null \
   | while IFS= read -r m; do
     tmp=$(mktemp)
-    sed \
+    # Both steps are allowed to fail without aborting the entrypoint: a manifest
+    # we cannot rewrite is cosmetic, not fatal. Kept as if/then rather than
+    # `sed && cat || true` so the fallback is tied to sed alone.
+    if sed \
       -e "s|\"name\": \".*\"|\"name\": \"${PROJECT_NAME:-Code} — VSCode\"|" \
       -e "s|\"short_name\": \".*\"|\"short_name\": \"${PROJECT_NAME:-Code}\"|" \
       -e "s|\"start_url\": \".*\"|\"start_url\": \"/?folder=/workspace\"|" \
-      "$m" > "$tmp" && cat "$tmp" > "$m" || true
+      "$m" > "$tmp"
+    then
+      cat "$tmp" > "$m" || true
+    fi
     rm -f "$tmp"
   done
 }
