@@ -6,7 +6,8 @@ set -euo pipefail
 # An "instance" is a docker container named `vscode-<folder>-<hash>` (see run.sh).
 # Each instance mounts:
 #   - the project folder as a bind mount at /workspace  (your source code — never deleted here)
-#   - named volumes (vscode-cli, vscode-claude-credentials) which are SHARED across instances
+#   - named volumes (vscode-cli, vscode-claude-credentials, vscode-extensions)
+#     which are SHARED across instances
 #
 # Commands:
 #   vsc ls                       list instances (status, port, folder, volumes)
@@ -274,16 +275,19 @@ cmd_destroy() {
   [[ $# -ge 1 ]] || die "usage: vsc destroy <selector>"
   local name; name=$(resolve_one "$1")
   # Capture volumes BEFORE removing the container (inspect is impossible after).
-  # vscode-cli (shared VS Code server) and vscode-claude-credentials (shared
-  # Claude auth) are kept so the next run keeps the server and credentials.
+  # vscode-cli (shared VS Code server), vscode-claude-credentials (shared Claude
+  # auth) and vscode-extensions (shared installed extensions) are kept so the
+  # next run keeps the server, credentials and extensions.
   local v vols=""
   for v in $(volumes_of "$name"); do
-    [[ "$v" == "vscode-cli" || "$v" == "vscode-claude-credentials" ]] && continue
+    case "$v" in
+      vscode-cli|vscode-claude-credentials|vscode-extensions) continue;;
+    esac
     vols+="$v "
   done
   ekv "About to destroy instance" "$name"
   ekv "  folder" "$(folder_of "$name" || true)" "bind mount, NOT deleted"
-  ekv "  shared volumes kept" "vscode-cli, vscode-claude-credentials"
+  ekv "  shared volumes kept" "vscode-cli, vscode-claude-credentials, vscode-extensions"
   if [[ -n "$vols" ]]; then
     err "  volumes to remove:"
     for v in $vols; do cont "  ${E_VALUE}${v}${E_OFF}"; done
@@ -307,7 +311,8 @@ ${C_HEAD}vsc${C_OFF} — manage VS Code serve-web instances created by run.sh
 An "instance" is a docker container named ${C_VALUE}vscode-<folder>-<hash>${C_OFF} (see run.sh).
 Each instance mounts the project folder as a bind mount at /workspace (your
 source code — never deleted here) plus named volumes (vscode-cli,
-vscode-claude-credentials) which are SHARED across all instances.
+vscode-claude-credentials, vscode-extensions) which are SHARED across all
+instances.
 
 ${C_HEAD}Commands:${C_OFF}
   ${C_VALUE}vsc ls${C_OFF}                      list instances (status, port, folder, volumes)

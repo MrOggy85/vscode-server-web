@@ -13,10 +13,12 @@ Each container started by `run.sh` mounts:
   Shared by every instance.
 - **`vscode-claude-credentials`** — a named volume holding Claude Code auth.
   Shared by every instance (see [claude.md](claude.md)).
+- **`vscode-extensions`** — a named volume holding the installed extensions.
+  Shared by every instance (see [sharing-extensions.md](sharing-extensions.md)).
 
-Both named volumes are **shared**, so removing them affects every project. `vsc`
-is built around this: it never touches the workspace bind mount, and it protects
-the two shared volumes.
+All three named volumes are **shared**, so removing them affects every project.
+`vsc` is built around this: it never touches the workspace bind mount, and it
+protects the shared volumes.
 
 ## Commands
 
@@ -54,23 +56,25 @@ disables it.
 ## How removal stays safe
 
 - **Workspace folder** — a bind mount, never removed.
-- **`vscode-cli` and `vscode-claude-credentials`** — `destroy` always **keeps**
-  these, even with `--force`, so the next run reuses the VS Code server and your
-  Claude credentials instead of re-downloading / re-authenticating.
+- **`vscode-cli`, `vscode-claude-credentials` and `vscode-extensions`** —
+  `destroy` always **keeps** these, even with `--force`, so the next run reuses
+  the VS Code server, your Claude credentials and your installed extensions
+  instead of re-downloading / re-authenticating / reinstalling.
 - **Volumes used by other instances** — skipped by default. Pass `--force` to
   remove them anyway (Docker still refuses to delete a volume held by a running
   container).
 
-In practice, because the two shared volumes are kept, `destroy` removes the
+In practice, because the shared volumes are kept, `destroy` removes the
 container plus any *per-project* named volumes — of which there are none unless
-you override `VSCODE_CLI_VOLUME` / `CLAUDE_VOLUME` per project.
+you override `VSCODE_CLI_VOLUME` / `CLAUDE_VOLUME` /
+`VSCODE_EXTENSIONS_VOLUME` per project.
 
 ## Examples
 
 ```bash
 ./vsc ls
 # CONTAINER                    STATUS    PORT    FOLDER                  VOLUMES
-# vscode-myapp-1a2b3c4d5e      running   24817   /Users/me/code/myapp    vscode-cli,vscode-claude-credentials
+# vscode-myapp-1a2b3c4d5e      running   24817   /Users/me/code/myapp    vscode-cli,vscode-claude-credentials,vscode-extensions
 
 ./vsc stop myapp               # stop + remove just the container
 ./vsc destroy myapp -y         # remove the container, keep shared volumes, no prompt

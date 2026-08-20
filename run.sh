@@ -45,6 +45,11 @@ HASH="$(path_hash "${PROJECT_DIR}")"
 CONTAINER="${VSCODE_CONTAINER:-vscode-${SAFE_NAME:-repo}-${HASH}}"
 CLI_VOLUME="${VSCODE_CLI_VOLUME:-vscode-cli}"
 CLAUDE_VOLUME="${CLAUDE_VOLUME:-vscode-claude-credentials}"
+# Installed extensions, shared across every instance: install once, available in
+# all containers. Enable/disable stays per-container because extension
+# enablement is User-scoped state, which in serve-web lives in the browser's
+# IndexedDB — and each instance has its own port, hence its own origin.
+EXTENSIONS_VOLUME="${VSCODE_EXTENSIONS_VOLUME:-vscode-extensions}"
 PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
 # Derive a stable default port in 10000-59999 from the path hash; override with PORT=...
@@ -53,6 +58,7 @@ PORT="${PORT:-$DEFAULT_PORT}"
 
 echo ">> container:  ${CONTAINER}"
 echo ">> cli volume: ${CLI_VOLUME}"
+echo ">> ext volume: ${EXTENSIONS_VOLUME}"
 echo ">> port:       ${PORT}"
 echo ">> project:    ${PROJECT_NAME}"
 
@@ -96,6 +102,7 @@ docker run -d \
   -e PROJECT_NAME="$PROJECT_NAME" \
   -v "${CLI_VOLUME}:/home/coder/.vscode" \
   -v "${CLAUDE_VOLUME}:/home/coder/.claude" \
+  -v "${EXTENSIONS_VOLUME}:/home/coder/.vscode-server/extensions" \
   -v "$PROJECT_DIR:/workspace" \
   -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/Machine/settings.json" \
   "${optional_mounts[@]+"${optional_mounts[@]}"}" \

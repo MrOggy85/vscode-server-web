@@ -14,8 +14,10 @@ set -euo pipefail
 # extension that declares the bindings via `contributes.keybindings`; those
 # register in the workbench from the manifest regardless of storage backend.
 #
-# `.vscode-server` is not a volume, so this dir resets from the image on every
-# run and we own it cleanly — no merge with user-installed extensions needed.
+# `<server-data-dir>/extensions` IS a shared named volume (see run.sh) holding
+# every Marketplace extension installed from any instance, so this must merge
+# into `extensions.json` rather than rewrite it — a rewrite would uninstall them
+# all on the next start.
 generate_keybindings_extension() {
   local src=/home/coder/keybindings.json
   [ -s "$src" ] || return 0
@@ -37,27 +39,53 @@ generate_keybindings_extension() {
     contributes: { keybindings: $kb[0] }
   }' > "${ext_dir}/package.json"
 
-  # extensions.json is the server's user-extension registry. We own the dir, so
-  # a fresh single-entry file is safe.
-  jq -n --arg dir "$ext_dir" --arg rel "${id}-${ver}" --arg id "$id" --arg ver "$ver" '[
-    {
-      identifier: { id: $id },
-      version: $ver,
-      location: { "$mid": 1, path: $dir, scheme: "file" },
-      relativeLocation: $rel,
-      metadata: { installedTimestamp: 0, source: "vsix" }
-    }
-  ]' > "${ext_root}/extensions.json"
+  # extensions.json is the server's user-extension registry, shared with every
+  # Marketplace extension installed from any instance. Replace only our own
+  # entry and keep the rest verbatim. A registry that isn't a readable JSON
+  # array is treated as empty — that is the fresh-volume case.
+  local entry existing tmp
+  entry=$(jq -nc --arg dir "$ext_dir" --arg rel "${id}-${ver}" --arg id "$id" --arg ver "$ver" '{
+    identifier: { id: $id },
+    version: $ver,
+    location: { "$mid": 1, path: $dir, scheme: "file" },
+    relativeLocation: $rel,
+    metadata: { installedTimestamp: 0, source: "vsix" }
+  }')
+
+  existing='[]'
+  if [ -s "${ext_root}/extensions.json" ]; then
+    existing=$(jq -c 'if type == "array" then . else [] end' \
+      "${ext_root}/extensions.json" 2>/dev/null) || existing='[]'
+  fi
+
+  # Write via a temp file so a jq failure can't leave a truncated registry.
+  tmp=$(mktemp)
+  if jq -n --argjson existing "$existing" --argjson entry "$entry" \
+    '[$existing[] | select(.identifier.id != $entry.identifier.id)] + [$entry]' > "$tmp"
+  then
+    cat "$tmp" > "${ext_root}/extensions.json"
+  fi
+  rm -f "$tmp"
+
+  # Only the paths this function created as root — the rest of the shared
+  # extensions volume already belongs to coder.
+  chown -R coder:coder "$ext_dir" "${ext_root}/extensions.json"
 }
 
 generate_keybindings_extension
 
-# Fix ownership only where it's actually needed: the two named volumes (a fresh
-# named volume mounts root-owned) and the server dir, where the keybindings
-# extension above was generated as root. Deliberately NOT a recursive chown over
-# all of /home/coder — that would hit the read-only .gitconfig bind mount and
-# abort the entrypoint under `set -e`.
-chown -R coder:coder /home/coder/.vscode /home/coder/.claude /home/coder/.vscode-server
+# Fix ownership only where it's actually needed: the named volumes (a fresh
+# named volume mounts root-owned) and the server data dir. Deliberately NOT a
+# recursive chown over all of /home/coder — that would hit the read-only
+# .gitconfig bind mount and abort the entrypoint under `set -e`.
+#
+# The extensions volume is chowned non-recursively on purpose: it is coder-owned
+# from the image path (see Dockerfile) and everything inside it is written by
+# coder, so recursing would walk every file of every installed extension on
+# every start for nothing. What the keybindings generator writes as root is
+# chowned by the generator itself.
+chown -R coder:coder /home/coder/.vscode /home/coder/.claude /home/coder/.vscode-server/data
+chown coder:coder /home/coder/.vscode-server /home/coder/.vscode-server/extensions
 
 # cat into the existing inode avoids sed -i fchown errors.
 patch_manifests() {

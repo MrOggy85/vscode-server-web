@@ -80,7 +80,11 @@ JSON
 # different user, which breaks VS Code's source control view for bind mounts.
 RUN git config --system --add safe.directory '*'
 
+# `extensions` is created here (rather than left to Docker) so the shared
+# extensions volume inherits coder ownership when it is initialised empty —
+# Docker copies the image path's uid/gid onto a fresh named volume.
 RUN mkdir -p /home/coder/.vscode-server/data/Machine \
+             /home/coder/.vscode-server/extensions \
     && chown -R coder:coder /home/coder
 
 COPY install_additional_packages.sh /usr/local/bin/install_additional_packages.sh

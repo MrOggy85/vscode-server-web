@@ -78,8 +78,9 @@ This is what `run.sh` does via the `-v` flag. If settings still seem ignored, ch
 - Writes `~/.vscode-server/extensions/local.container-keybindings-1.0.0/package.json` with the bindings under `contributes.keybindings`.
 - Registers it in `~/.vscode-server/extensions/extensions.json` (the server's user-extension registry).
 
-`serve-web` exposes no `--extensions-dir`; the user-extension directory is fixed at `<server-data-dir>/extensions`. Because `.vscode-server` is not a Docker volume, it resets from the image on every run, so the entrypoint can own that directory cleanly and rewrite the single-entry `extensions.json` without merging.
+`serve-web` exposes no `--extensions-dir`; the user-extension directory is fixed at `<server-data-dir>/extensions`. That directory is the shared `vscode-extensions` volume (see [sharing-extensions.md](sharing-extensions.md)), so the entrypoint **merges** its entry into `extensions.json` — replacing only `local.container-keybindings` and leaving every Marketplace extension untouched. A blind rewrite there would uninstall them all on the next start.
 
 Notes:
 - `keybindings.json` is parsed as **strict JSON** (via `jq`) — no `//` comments.
+- Because the extensions directory is shared, the generated extension persists there. Removing `keybindings.json` stops it being regenerated but does not uninstall it — delete `local.container-keybindings-1.0.0` from the `vscode-extensions` volume (or uninstall it from the Extensions view) to drop the bindings.
 - Contributed keybindings sit at default-keybinding priority. A binding the user sets in the browser-stored profile for the same key still wins; this is for shared defaults across containers, not for overriding per-user choices.

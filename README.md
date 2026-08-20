@@ -99,7 +99,9 @@ The image is rebuilt automatically by `run.sh` whenever this file changes.
 
 Claude Code is pre-installed and available from the VS Code terminal. See [docs/claude.md](docs/claude.md) for authentication and usage details.
 
-## Installing extensions
+## Extensions
+
+Installed extensions live in the shared `vscode-extensions` volume, so you install an extension once and every instance has it. Enable/disable is per instance — extension enablement is stored in the browser, and each instance has its own port, hence its own origin. Use **Disable** rather than Uninstall to turn one off for a single project; uninstalling removes it everywhere. See [docs/sharing-extensions.md](docs/sharing-extensions.md).
 
 Marketplace extensions download their package bytes from a per-publisher CDN host that the outbound firewall blocks by default — installs fail with `ECONNREFUSED` until you allowlist that host. See [docs/installing-extensions.md](docs/installing-extensions.md).
 

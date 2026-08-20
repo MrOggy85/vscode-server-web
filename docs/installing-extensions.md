@@ -1,5 +1,9 @@
 # Installing VS Code extensions
 
+Installs are shared across all instances via the `vscode-extensions` volume —
+see [sharing-extensions.md](sharing-extensions.md). This page covers the
+firewall failure you hit while installing.
+
 ## Symptom
 
 Installing an extension from the Marketplace fails. The Output panel (or
