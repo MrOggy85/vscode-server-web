@@ -12,8 +12,12 @@ set -euo pipefail
 # Commands:
 #   vsc ls                       list instances (status, port, folder, volumes)
 #   vsc stop      <selector>     stop and remove a running instance (container only)
-#   vsc rm-volumes <selector>    remove the named volumes attached to an instance
-#   vsc destroy   <selector>     stop the instance, then remove its volumes
+#   vsc rm-volumes <selector>    remove an instance and ALL its volumes, shared included
+#   vsc destroy   <selector>     remove an instance, keeping the shared volumes
+#
+# Both rm-volumes and destroy remove the container: docker refuses to delete a
+# volume that any container still references, running or stopped, so there is no
+# way to drop an instance's volumes while the instance still exists.
 #
 # <selector> matches an exact container name, or a substring of the container
 # name or the project folder name. Ambiguous matches are rejected.
@@ -243,32 +247,55 @@ volume_tally() { # <removed> <skipped>
   fi
 }
 
-# Remove the named volumes for a container. Skips volumes still used by other
-# instances unless --force. Requires the volume to be free (docker refuses to
-# remove an in-use volume), so the owning container must be gone first.
-remove_volumes_of() {
-  local name="$1" v
-  local removed=0 skipped=0
-  while IFS= read -r v; do
+# Remove an already-captured list of volumes. Skips volumes still used by other
+# instances unless --force.
+#
+# The list is passed in rather than re-derived from the container: docker refuses
+# to remove a volume any container still references, so the owning container must
+# already be gone by the time this runs — and volumes_of() shells out to
+# `docker inspect`, which returns nothing once it is.
+remove_volumes() { # <owning-container> <volume>...
+  local name="$1"; shift
+  local v removed=0 skipped=0
+  for v in "$@"; do
     [[ -z "$v" ]] && continue
     if remove_one_volume "$v" "$name"; then removed=$((removed+1)); else skipped=$((skipped+1)); fi
-  done < <(volumes_of "$name")
+  done
   volume_tally "$removed" "$skipped"
+}
+
+# Read a container's volumes into the named array, dropping blanks. Must be
+# called while the container still exists.
+read_volumes_into() { # <array-name> <container>
+  local -n _out="$1"
+  local v
+  _out=()
+  while IFS= read -r v; do [[ -n "$v" ]] && _out+=("$v"); done < <(volumes_of "$2")
 }
 
 cmd_rm_volumes() {
   [[ $# -ge 1 ]] || die "usage: vsc rm-volumes <selector>"
   local name; name=$(resolve_one "$1")
-  local vols; vols=$(volumes_of "$name")
-  [[ -z "$vols" ]] && { note "no named volumes attached to $name"; return 0; }
-  err "Volumes attached to ${E_VALUE}${name}${E_OFF}:"
+
+  local -a vols=()
+  read_volumes_into vols "$name"
+  [[ ${#vols[@]} -eq 0 ]] && { note "no named volumes attached to $name"; return 0; }
+
+  # The container has to go too. resolve_one only ever matches containers that
+  # exist, so "remove the volumes but leave the instance" is not a state docker
+  # can be asked for — say so in the prompt rather than failing at the daemon.
   local v
-  for v in $vols; do cont "${E_VALUE}${v}${E_OFF}"; done
-  if confirm "Remove these volumes?"; then
-    remove_volumes_of "$name"
-  else
-    note "aborted"
-  fi
+  err "Volumes attached to ${E_VALUE}${name}${E_OFF}:"
+  for v in "${vols[@]}"; do cont "${E_VALUE}${v}${E_OFF}"; done
+  err "Docker will not delete a volume its container still references, so the"
+  err "container ${E_VALUE}${name}${E_OFF} is removed first."
+  ekv "  folder" "$(folder_of "$name" || true)" "bind mount, NOT deleted"
+
+  confirm "Remove the container and these volumes?" || { note "aborted"; return 0; }
+
+  docker rm -f "$name" >/dev/null
+  ok "removed container $name"
+  remove_volumes "$name" "${vols[@]}"
 }
 
 cmd_destroy() {
@@ -278,30 +305,28 @@ cmd_destroy() {
   # vscode-cli (shared VS Code server), vscode-claude-credentials (shared Claude
   # auth) and vscode-extensions (shared installed extensions) are kept so the
   # next run keeps the server, credentials and extensions.
-  local v vols=""
-  for v in $(volumes_of "$name"); do
+  local -a all=() vols=()
+  local v
+  read_volumes_into all "$name"
+  for v in ${all[@]+"${all[@]}"}; do
     case "$v" in
       vscode-cli|vscode-claude-credentials|vscode-extensions) continue;;
     esac
-    vols+="$v "
+    vols+=("$v")
   done
   ekv "About to destroy instance" "$name"
   ekv "  folder" "$(folder_of "$name" || true)" "bind mount, NOT deleted"
   ekv "  shared volumes kept" "vscode-cli, vscode-claude-credentials, vscode-extensions"
-  if [[ -n "$vols" ]]; then
+  if [[ ${#vols[@]} -gt 0 ]]; then
     err "  volumes to remove:"
-    for v in $vols; do cont "  ${E_VALUE}${v}${E_OFF}"; done
+    for v in "${vols[@]}"; do cont "  ${E_VALUE}${v}${E_OFF}"; done
   fi
   confirm "Stop the container and remove its volumes?" || { note "aborted"; return 0; }
 
   docker rm -f "$name" >/dev/null
   ok "removed container $name"
 
-  local removed=0 skipped=0
-  for v in $vols; do
-    if remove_one_volume "$v" "$name"; then removed=$((removed+1)); else skipped=$((skipped+1)); fi
-  done
-  volume_tally "$removed" "$skipped"
+  remove_volumes "$name" ${vols[@]+"${vols[@]}"}
 }
 
 usage() {
@@ -317,8 +342,11 @@ instances.
 ${C_HEAD}Commands:${C_OFF}
   ${C_VALUE}vsc ls${C_OFF}                      list instances (status, port, folder, volumes)
   ${C_VALUE}vsc stop${C_OFF}       <selector>   stop and remove a running instance (container only)
-  ${C_VALUE}vsc rm-volumes${C_OFF} <selector>   remove the named volumes attached to an instance
-  ${C_VALUE}vsc destroy${C_OFF}    <selector>   stop the instance, then remove its volumes
+  ${C_VALUE}vsc rm-volumes${C_OFF} <selector>   remove an instance and ALL its volumes, shared included
+  ${C_VALUE}vsc destroy${C_OFF}    <selector>   remove an instance, keeping the shared volumes
+
+Both rm-volumes and destroy remove the container: docker refuses to delete a
+volume that any container still references, running or stopped.
 
 <selector> matches an exact container name, or a substring of the container
 name or the project folder name. Ambiguous matches are rejected.

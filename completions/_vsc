@@ -33,14 +33,14 @@ _vsc() {
   cmds=(
     'ls:list instances (status, port, folder, volumes)'
     'stop:stop and remove a running instance (container only)'
-    'rm-volumes:remove the named volumes attached to an instance'
-    'destroy:stop the instance, then remove its volumes'
+    'rm-volumes:remove an instance and ALL its volumes, shared included'
+    'destroy:remove an instance, keeping the shared volumes'
     'help:show usage'
   )
 
   _arguments -C \
     '(-y --yes)'{-y,--yes}'[skip confirmation prompts]' \
-    '(-f --force)'{-f,--force}'[also remove volumes shared with other instances]' \
+    '(-f --force)'{-f,--force}'[also attempt volumes shared with other instances]' \
     '--no-color[disable colour output]' \
     '(-h --help)'{-h,--help}'[show usage]' \
     '1: :->cmd' \
