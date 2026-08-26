@@ -14,7 +14,9 @@ Run once after cloning:
 make init
 ```
 
-This creates `install_additional_packages.sh` from the example file (gitignored — your edits stay local). See [Additional packages](#additional-packages) if you want to pre-install tools into the image.
+This creates `install_additional_packages.sh`, `allowed-domains.txt` and `settings.json` from their example files. All three are gitignored — your edits stay local. Existing files are left alone, so it is safe to re-run.
+
+See [Additional packages](#additional-packages) if you want to pre-install tools into the image.
 
 ## Usage
 
@@ -28,14 +30,11 @@ Omit the path to open the current directory. The script derives a stable contain
 
 VS Code user settings are loaded from `settings.json` in this repo and mounted into the container at startup.
 
-1. Copy the example file:
-   ```bash
-   cp settings.json.example settings.json
-   ```
-2. Edit `settings.json` to your preference.
-3. `settings.json` is gitignored — your personal settings stay local.
+`make init` creates it from `settings.json.example`; edit it to your preference. It is gitignored, so your personal settings stay local.
 
-Changes to `settings.json` take effect on the next `./run.sh` (the container is recreated each run).
+Changes take effect on the next `./run.sh` (the container is recreated each run).
+
+If the file is missing, `run.sh` says so and starts without machine settings rather than mounting a nonexistent path — Docker would otherwise materialise a `settings.json/` *directory* in the repo root.
 
 ## Keybindings
 

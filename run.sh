@@ -67,6 +67,19 @@ docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
 optional_mounts=()
 
+# VS Code Machine settings, surfaced in the UI as "Remote Settings". Guarded like
+# every other mount here rather than passed unconditionally: Docker materialises a
+# *directory* for a bind source that does not exist, so an unconditional mount
+# silently creates a `settings.json/` directory in the repo root on a fresh clone
+# and VS Code ends up with no machine settings at all. `make init` creates the
+# file, so the warning below only fires if it was skipped or deleted.
+if [ -f "${SCRIPT_DIR}/settings.json" ]; then
+  optional_mounts+=(-v "${SCRIPT_DIR}/settings.json:/home/coder/.vscode-server/data/Machine/settings.json")
+else
+  echo ">> note: no settings.json — starting without machine settings"
+  echo ">>       create one with 'make init' (or cp settings.json.example settings.json)"
+fi
+
 # Shell aliases for the integrated terminal. Optional — only mounted when the
 # file exists.
 [ -f "${SCRIPT_DIR}/.bash_aliases" ] \
@@ -104,7 +117,6 @@ docker run -d \
   -v "${CLAUDE_VOLUME}:/home/coder/.claude" \
   -v "${EXTENSIONS_VOLUME}:/home/coder/.vscode-server/extensions" \
   -v "$PROJECT_DIR:/workspace" \
-  -v "$SCRIPT_DIR/settings.json:/home/coder/.vscode-server/data/Machine/settings.json" \
   "${optional_mounts[@]+"${optional_mounts[@]}"}" \
   --cap-drop ALL \
   --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add SETUID --cap-add SETGID \
