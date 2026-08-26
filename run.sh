@@ -13,6 +13,10 @@ sha256() {
   else shasum -a 256 "$@"; fi
 }
 
+# Every file the image is built from. Anything COPY'd by the Dockerfile belongs
+# here, or editing it will not rebuild: the npm trio pins the Claude Code and
+# TypeScript versions, and docs/CLAUDE.md documents `./run.sh` as the way to
+# apply a version bump.
 context_hash() {
   local files=(
     "${SCRIPT_DIR}/Dockerfile"
@@ -20,6 +24,9 @@ context_hash() {
     "${SCRIPT_DIR}/install_additional_packages.sh"
     "${SCRIPT_DIR}/init-firewall.sh"
     "${SCRIPT_DIR}/allowed-domains.txt"
+    "${SCRIPT_DIR}/package.json"
+    "${SCRIPT_DIR}/package-lock.json"
+    "${SCRIPT_DIR}/.npmrc"
   )
   local existing=()
   for f in "${files[@]}"; do [ -f "$f" ] && existing+=("$f"); done

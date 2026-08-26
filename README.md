@@ -24,7 +24,9 @@ See [Additional packages](#additional-packages) if you want to pre-install tools
 ./run.sh [path/to/project]
 ```
 
-Omit the path to open the current directory. The script derives a stable container name and port from the project path so concurrent projects don't collide. The image is built automatically on first run and rebuilt whenever `Dockerfile`, `entrypoint.sh`, or `install_additional_packages.sh` change.
+Omit the path to open the current directory. The script derives a stable container name and port from the project path so concurrent projects don't collide.
+
+The image is built automatically on first run, and rebuilt whenever any file it is built from changes: `Dockerfile`, `entrypoint.sh`, `init-firewall.sh`, `install_additional_packages.sh`, `allowed-domains.txt`, `package.json`, `package-lock.json`, `.npmrc`. Files that are *mounted* rather than baked in — `settings.json`, `keybindings.json`, `.gitconfig`, `.gitignore_global`, `.bash_aliases` — take effect on the next run without a rebuild.
 
 ## User settings
 
