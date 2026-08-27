@@ -1,5 +1,7 @@
 # vscode-server-web
 
+[![Lint](https://github.com/MrOggy85/vscode-server-web/actions/workflows/lint.yml/badge.svg)](https://github.com/MrOggy85/vscode-server-web/actions/workflows/lint.yml)
+
 Runs VS Code Server (serve-web) in a Docker container, one container per project, with a stable per-project data volume.
 
 ## Requirements
