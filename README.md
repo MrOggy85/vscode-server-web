@@ -109,3 +109,11 @@ Marketplace extensions download their package bytes from a per-publisher CDN hos
 ## Troubleshooting
 
 See [docs/troubleshooting.md](docs/troubleshooting.md).
+
+## Development
+
+```bash
+make lint
+```
+
+Shellchecks every script in the repo. CI runs the same target on push and PR, so a green `make lint` locally means a green CI. It needs no `make init` — only committed files are linted.

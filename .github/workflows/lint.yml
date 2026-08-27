@@ -1,0 +1,43 @@
+name: Lint
+
+# Deny-list, not an allow-list: an allow-list silently skips whatever it forgets,
+# and the thing most worth catching is a script nobody remembered to add. Only
+# pure-prose paths are ignored. The two lists are duplicated on purpose — GitHub
+# Actions' workflow parser rejects YAML anchors/aliases, so they cannot be shared.
+#
+# Note the usual trade-off: a docs-only PR runs no jobs at all, so do not make
+# this a *required* status check without accounting for that.
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - 'docs/**'
+      - 'tickets/**'
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'LICENSE'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'tickets/**'
+      - 'README.md'
+      - 'CLAUDE.md'
+      - 'LICENSE'
+
+permissions:
+  contents: read
+
+jobs:
+  # An all-bash repo, so shellcheck is the type checker. The file list and flags
+  # live in `make lint`, not here, so a local run and CI cannot disagree.
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Preinstalled on the ubuntu runner image; the fallback keeps the job
+      # honest if that ever changes.
+      - run: command -v shellcheck >/dev/null || { sudo apt-get update && sudo apt-get install -y shellcheck; }
+      # Deliberately no `make init` first: init writes gitignored, user-owned
+      # files, and `make lint` is built to run on a bare checkout so that CI
+      # lints exactly what is committed.
+      - run: make lint

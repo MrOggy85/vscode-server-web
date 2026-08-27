@@ -11,6 +11,8 @@ This repo builds and runs a VS Code Server (serve-web) Docker container — one 
 - `allowed-domains.txt` — gitignored; copy from `allowed-domains.txt.example` and rebuild to change allowed outbound hosts
 - `package.json` / `package-lock.json` — pins the Claude Code and TypeScript versions installed into the image
 - `settings.json` — gitignored; copy from `settings.json.example` for VS Code machine settings
+- `Makefile` — `make init` seeds the gitignored config files; `make lint` shellchecks every script
+- `.github/workflows/lint.yml` — CI; runs `make lint`, so it cannot drift from a local run
 
 ## Further reading
 
