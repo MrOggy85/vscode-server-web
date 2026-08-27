@@ -1,6 +1,6 @@
 # vscode-server-web
 
-[![Lint](https://github.com/MrOggy85/vscode-server-web/actions/workflows/lint.yml/badge.svg)](https://github.com/MrOggy85/vscode-server-web/actions/workflows/lint.yml)
+[![Lint](https://github.com/MrOggy85/vscode-server-web/actions/workflows/lint.yml/badge.svg)](https://github.com/MrOggy85/vscode-server-web/actions/workflows/lint.yml) [![Build](https://github.com/MrOggy85/vscode-server-web/actions/workflows/build.yml/badge.svg)](https://github.com/MrOggy85/vscode-server-web/actions/workflows/build.yml)
 
 Runs VS Code Server (serve-web) in a Docker container, one container per project, with a stable per-project data volume.
 
