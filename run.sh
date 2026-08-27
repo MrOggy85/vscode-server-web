@@ -17,6 +17,9 @@ sha256() {
 # here, or editing it will not rebuild: the npm trio pins the Claude Code and
 # TypeScript versions, and docs/CLAUDE.md documents `./run.sh` as the way to
 # apply a version bump.
+#
+# .github/workflows/build.yml gates its CI build on the same set — add a file
+# here and it needs adding there too, or CI will not build the change.
 context_hash() {
   local files=(
     "${SCRIPT_DIR}/Dockerfile"

@@ -117,3 +117,5 @@ make lint
 ```
 
 Shellchecks every script in the repo. CI runs the same target on push and PR, so a green `make lint` locally means a green CI. It needs no `make init` — only committed files are linted.
+
+CI also builds the image and smoke-tests it, but only when a file the image is built from changes — the same set that triggers a local rebuild.

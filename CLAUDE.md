@@ -13,6 +13,7 @@ This repo builds and runs a VS Code Server (serve-web) Docker container — one 
 - `settings.json` — gitignored; copy from `settings.json.example` for VS Code machine settings
 - `Makefile` — `make init` seeds the gitignored config files; `make lint` shellchecks every script
 - `.github/workflows/lint.yml` — CI; runs `make lint`, so it cannot drift from a local run
+- `.github/workflows/build.yml` — CI; builds and smoke-tests the image. Its path filter mirrors `context_hash()` in `run.sh` — change one, change the other
 
 ## Further reading
 

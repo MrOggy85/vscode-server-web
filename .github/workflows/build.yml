@@ -1,0 +1,82 @@
+name: Build
+
+# Allow-list, unlike lint.yml's deny-list, and deliberately so: this job costs
+# minutes (NodeSource, the VS Code CLI download, `npm ci`), so it should run only
+# when something the image is actually built from changes.
+#
+# This list mirrors context_hash() in run.sh — the set of files that trigger a
+# local rebuild. Keep the two in sync: a file added to the Dockerfile needs
+# adding to context_hash() *and* here, or CI will not build it.
+#
+# Two entries are stand-ins. install_additional_packages.sh and
+# allowed-domains.txt are COPY'd by the Dockerfile but gitignored, so CI never
+# sees them — it builds from the .example files that `make init` copies into
+# place, and those are what changes here. Makefile is listed because it owns that
+# substitution.
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'Dockerfile'
+      - 'entrypoint.sh'
+      - 'init-firewall.sh'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
+      - 'install_additional_packages.sh.example'
+      - 'allowed-domains.txt.example'
+      - 'Makefile'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'entrypoint.sh'
+      - 'init-firewall.sh'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
+      - 'install_additional_packages.sh.example'
+      - 'allowed-domains.txt.example'
+      - 'Makefile'
+      - '.github/workflows/build.yml'
+
+permissions:
+  contents: read
+
+# A multi-minute job: drop superseded runs rather than queue them.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # The one job that needs `make init`. The Dockerfile COPYs
+      # allowed-domains.txt and install_additional_packages.sh, both gitignored,
+      # so a bare checkout cannot build — init seeds them from their .example.
+      - name: Seed gitignored build-context files
+        run: make init
+
+      - name: Build image
+        run: docker build --tag vscode-serve-web:ci .
+
+      # A build that produces an image missing its tooling still "passes", so
+      # check the things the Dockerfile installs are actually on PATH, and that
+      # the two scripts it chmods are still executable — a mode can silently
+      # fail to carry across.
+      - name: Smoke-test the image
+        run: |
+          docker run --rm --entrypoint /bin/bash vscode-serve-web:ci -c '
+            set -euo pipefail
+            for bin in code node npm nft jq gosu git rg; do
+              command -v "$bin" >/dev/null || { echo "missing: $bin" >&2; exit 1; }
+            done
+            test -x /usr/local/bin/entrypoint.sh
+            test -x /usr/local/bin/init-firewall.sh
+            # Best-effort: useful in the log, but not something that should fail
+            # the build if the CLI ever changes how it reports its version.
+            echo "node $(node --version), code $(code --version 2>/dev/null | head -n1 || echo unknown)"
+          '
