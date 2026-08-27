@@ -2,6 +2,16 @@
 # Configures outbound firewall at container start (runs as root, before privilege drop).
 # Uses nftables — works in containers with NET_ADMIN without requiring host kernel modules.
 # Allowed domains are baked into the image at /etc/allowed-domains.txt — rebuild to change them.
+#
+# One dual-stack `inet` table, so a single ruleset governs IPv4 and IPv6. This
+# matters: an `ip`-family table installs no IPv6 hook at all, so v6 output is
+# unfiltered — the drop policy simply does not apply to it. The allowlist is
+# resolved from A records only, so IPv6 has no accept rule and falls through to
+# the reject at the bottom of the output chain. That is deliberate: v6 fails
+# closed. Because the reject is immediate rather than a timeout, a dual-stack
+# client falls straight back to IPv4 (Happy Eyeballs) and still reaches allowed
+# hosts. A v6-only network would have no egress at all; add an ipv6_addr set and
+# an AAAA lookup in refresh_allowlist if that is ever needed.
 set -euo pipefail
 
 DOMAINS_FILE="/etc/allowed-domains.txt"
@@ -29,7 +39,7 @@ refresh_allowlist() {
       continue
     fi
     while IFS= read -r ip; do
-      if nft add element ip firewall allowed-ips "{ $ip }" 2>/dev/null && [[ "$verbose" != "1" ]]; then
+      if nft add element inet firewall allowed-ips "{ $ip }" 2>/dev/null && [[ "$verbose" != "1" ]]; then
         log "refresh: +$ip ($domain)"
       fi
     done <<< "$ips"
@@ -56,12 +66,23 @@ if [[ ! -f "$DOMAINS_FILE" ]]; then
   exit 0
 fi
 
-nft flush ruleset
-
 # Base ruleset: output defaults to drop; reject rules at the bottom give fast
 # failure (TCP RST or ICMP unreachable) instead of silent timeout.
+#
+# Replaces only our own table, rather than `nft flush ruleset`. A full flush
+# wipes every table in the container's network namespace, including the ones
+# Docker installs there — the DNAT for the embedded DNS resolver (127.0.0.11:53)
+# and the published-port DNAT. The bare `table inet firewall` line creates the
+# table if it does not exist, so the `delete` on the next line never errors on a
+# cold start. `nft -f` applies the whole file as one transaction.
+#
+# `ip daddr @allowed-ips` matches IPv4 only, which is what the allowlist holds;
+# IPv6 packets fall through to the reject. See the header comment.
 nft -f - <<'NFT_EOF'
-table ip firewall {
+table inet firewall
+delete table inet firewall
+
+table inet firewall {
     set allowed-ips {
         type ipv4_addr
     }
@@ -103,7 +124,7 @@ if [[ -n "$OPEN_PORTS" ]]; then
       log "warn: ignoring invalid port spec '$pp'"; continue
     fi
     case "$proto" in tcp|udp) ;; *) log "warn: ignoring invalid proto in '$pp'"; continue ;; esac
-    nft add rule ip firewall input "$proto" dport "$port" accept
+    nft add rule inet firewall input "$proto" dport "$port" accept
     log "open inbound: ${port}/${proto}"
   done
 fi
