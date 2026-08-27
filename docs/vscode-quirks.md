@@ -1,6 +1,6 @@
 # VS Code Quirks
 
-## Server download stuck on first run (or after image rebuild)
+## Server download stuck on "Downloading new version…"
 
 **Symptom:** The browser shows a white "Downloading new version…" page indefinitely. The container log repeats:
 
@@ -14,7 +14,13 @@ every 2–3 seconds with no progress.
 
 **Cause:** `code serve-web` downloads the VS Code web server bundle at runtime. The initial request goes to `update.code.visualstudio.com`, which issues a 302 redirect to `vscode.download.prss.microsoft.com` for the actual file. The outbound firewall resolves and allows IPs by domain name, so if the redirect target domain is missing from `allowed-domains.txt`, the CDN connection is immediately rejected with a TCP RST — hence the fast retry loop.
 
-This happens on first start against a fresh CLI volume, or whenever the image is rebuilt with a newer VS Code CLI version that requires a different server bundle.
+Three things trigger the download, and only the first two involve you:
+
+1. **First start against a fresh CLI volume** — nothing is cached yet.
+2. **An image rebuild that moves the VS Code CLI.** `Dockerfile` fetches the CLI from the `latest` slot, resolved at build time, so *any* rebuild can pick up a newer CLI — including one triggered by an unrelated change such as a Claude Code version bump.
+3. **A new upstream stable release.** `serve-web` follows the stable channel rather than the CLI's own build, so it fetches the new server bundle on its own. This needs no rebuild and no action from you, and since VS Code ships roughly monthly it is the usual explanation for a download appearing "out of nowhere".
+
+Note that the CLI baked into the image and the server bundle are separate downloads. Pinning the `Dockerfile` to a fixed CLI version addresses case 2 only; case 3 happens regardless.
 
 **Fix:** `vscode.download.prss.microsoft.com` must be in `allowed-domains.txt` before building the image. Rebuild and restart:
 

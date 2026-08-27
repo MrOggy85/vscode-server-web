@@ -38,6 +38,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # Download Microsoft's official VS Code CLI for the container's architecture.
+# `latest` resolves at build time and fixes the CLI only. The server bundle is a
+# separate runtime download into the vscode-cli volume, and follows upstream
+# stable on its own — pinning this line would not freeze it.
 RUN set -eux; \
     case "$(uname -m)" in \
       x86_64)  a=cli-linux-x64 ;; \
