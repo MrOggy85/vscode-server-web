@@ -9,6 +9,12 @@ SHELL_SOURCES := vsc \
   $(filter-out install_additional_packages.sh,$(wildcard *.sh)) \
   $(wildcard *.sh.example)
 
+# Scripts invoked as ./name, so the committed mode has to be 100755. An editor
+# dropping it produces a "Permission denied" that looks nothing like a mode
+# problem. entrypoint.sh and init-firewall.sh are absent on purpose — the
+# Dockerfile chmods those, and make init chmods install_additional_packages.sh.
+EXECUTABLES := run.sh vsc
+
 .PHONY: init lint
 
 init: install_additional_packages.sh allowed-domains.txt settings.json
@@ -22,6 +28,9 @@ lint:
 	  echo "shellcheck not found. Install with 'sudo apt install shellcheck' or 'brew install shellcheck'"; \
 	  exit 1; \
 	}
+	@for f in $(EXECUTABLES); do \
+	  test -x "$$f" || { echo "not executable: $$f  (chmod +x $$f)"; exit 1; }; \
+	done
 	shellcheck -x $(SHELL_SOURCES)
 
 install_additional_packages.sh:
