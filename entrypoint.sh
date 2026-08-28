@@ -5,6 +5,30 @@ set -euo pipefail
 
 /usr/local/bin/init-firewall.sh "${PORT}/tcp"
 
+# Run as the host uid:gid so /workspace writes are owned by the host user. On
+# macOS the VM writes as that user, so `ls -l` there looks right either way — but
+# inside the VM the file keeps this container's uid, which is what another
+# container on the same project sees.
+# run.sh always sends these; the fallback is for a hand-rolled `docker run`.
+TARGET_UID="${HOST_UID:-1000}"
+TARGET_GID="${HOST_GID:-1000}"
+
+# Never run the server as root — that is what the gosu drop is for.
+if [ "$TARGET_UID" = "0" ] || [ "$TARGET_GID" = "0" ]; then
+  echo "[entrypoint] HOST_UID/HOST_GID of 0 refused — falling back to 1000:1000" >&2
+  TARGET_UID=1000
+  TARGET_GID=1000
+fi
+
+# Edit passwd directly, not usermod -u: that chowns all of $HOME, walking every
+# installed extension and hitting the read-only .gitconfig mount (332e6f9).
+# Primary gid only, no /etc/group edit — a macOS gid 20 (staff) collides with
+# dialout. Every chown below is numeric, so nothing needs the group name.
+if [ "$(id -u coder)" != "$TARGET_UID" ] || [ "$(id -g coder)" != "$TARGET_GID" ]; then
+  echo "[entrypoint] running as ${TARGET_UID}:${TARGET_GID} (was $(id -u coder):$(id -g coder))" >&2
+  sed -i -E "s|^coder:x:[0-9]+:[0-9]+:|coder:x:${TARGET_UID}:${TARGET_GID}:|" /etc/passwd
+fi
+
 # Apply keybindings via a generated extension.
 #
 # VS Code keybindings are strictly User-scoped — there is no Machine-scope
@@ -68,8 +92,8 @@ generate_keybindings_extension() {
   rm -f "$tmp"
 
   # Only the paths this function created as root — the rest of the shared
-  # extensions volume already belongs to coder.
-  chown -R coder:coder "$ext_dir" "${ext_root}/extensions.json"
+  # extensions volume already belongs to the runtime user.
+  chown -R "${TARGET_UID}:${TARGET_GID}" "$ext_dir" "${ext_root}/extensions.json"
 }
 
 generate_keybindings_extension
@@ -78,14 +102,23 @@ generate_keybindings_extension
 # named volume mounts root-owned) and the server data dir. Deliberately NOT a
 # recursive chown over all of /home/coder — that would hit the read-only
 # .gitconfig bind mount and abort the entrypoint under `set -e`.
-#
-# The extensions volume is chowned non-recursively on purpose: it is coder-owned
-# from the image path (see Dockerfile) and everything inside it is written by
-# coder, so recursing would walk every file of every installed extension on
-# every start for nothing. What the keybindings generator writes as root is
-# chowned by the generator itself.
-chown -R coder:coder /home/coder/.vscode /home/coder/.claude /home/coder/.vscode-server/data
-chown coder:coder /home/coder/.vscode-server /home/coder/.vscode-server/extensions
+EXT_ROOT=/home/coder/.vscode-server/extensions
+
+# Normally chowned non-recursively — recursing would walk every installed
+# extension on every start. A uid change is the exception: it strands them all
+# in the shared volume. The dir's own owner is the signal, so this runs once.
+if [ "$(stat -c %u "$EXT_ROOT")" != "$TARGET_UID" ]; then
+  echo "[entrypoint] extensions volume has a different owner — chowning once" >&2
+  chown -R "${TARGET_UID}:${TARGET_GID}" "$EXT_ROOT"
+fi
+
+chown -R "${TARGET_UID}:${TARGET_GID}" /home/coder/.vscode /home/coder/.claude /home/coder/.vscode-server/data
+chown "${TARGET_UID}:${TARGET_GID}" /home/coder/.vscode-server "$EXT_ROOT"
+
+# Baked into the image as 1000; Claude Code rewrites ~/.claude.json at runtime.
+# Named explicitly, not globbed: the home dir also holds the read-only
+# .gitconfig mount (332e6f9).
+chown "${TARGET_UID}:${TARGET_GID}" /home/coder /home/coder/.claude.json /home/coder/.bashrc
 
 # cat into the existing inode avoids sed -i fchown errors.
 patch_manifests() {

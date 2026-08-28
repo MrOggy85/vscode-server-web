@@ -90,6 +90,16 @@ NVM_DIR="/home/coder/.nvm" HOME="/home/coder" \
 
 The image is rebuilt automatically by `run.sh` whenever this file changes.
 
+## File ownership
+
+The container runs as your host uid:gid, so anything it writes into the project — a `pnpm install`, a build output — is owned by you rather than by the container's internal user.
+
+This matters most when another container works on the same project. If it runs as your uid — `--user "$(id -u):$(id -g)"` — and this one had written as a different uid, it could not modify a `node_modules` installed here.
+
+On macOS the mismatch is easy to miss, because it is invisible from the Mac side: the VM performs writes as your host user, so `ls -l` on macOS looks correct whatever uid wrote the file. Inside the Linux VM the file still carries the writing container's uid, which is where the conflict shows up.
+
+Set `VSCODE_MATCH_HOST_UID=0` to go back to the fixed internal `1000:1000`.
+
 ## Caveats
 
 **User Settings vs Remote Settings:** unlike a local VS Code install, "Open User Settings JSON" stores settings in the browser (per origin) and does not persist across devices or containers. The mounted `settings.json` is surfaced as "Open Remote Settings JSON" and is the persistent, authoritative source. Settings precedence: Machine (= Remote) > User > Workspace.

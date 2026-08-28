@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${1:-.}" && pwd)"
 
 # Stable per-project names: vscode-<dirname>-<short hash of full path>.
-# Same approach as claude-in-docker/run.sh — hash disambiguates same-named dirs.
+# The hash disambiguates same-named dirs in different locations.
 sha256() {
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$@"
   else shasum -a 256 "$@"; fi
@@ -66,7 +66,20 @@ PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 DEFAULT_PORT=$(( 10000 + ( 0x$(printf '%s' "${HASH}" | cut -c1-4) % 50000 ) ))
 PORT="${PORT:-$DEFAULT_PORT}"
 
+# Run as your uid:gid so files the container writes into the project are yours.
+# Otherwise it writes as 1000, and another container running as your uid cannot
+# modify what it created (a pnpm-installed node_modules, say).
+# VSCODE_MATCH_HOST_UID=0 restores the fixed 1000:1000.
+if [[ "${VSCODE_MATCH_HOST_UID:-1}" == "1" ]]; then
+  HOST_UID="$(id -u)"
+  HOST_GID="$(id -g)"
+else
+  HOST_UID=1000
+  HOST_GID=1000
+fi
+
 echo ">> container:  ${CONTAINER}"
+echo ">> user:       ${HOST_UID}:${HOST_GID}"
 echo ">> cli volume: ${CLI_VOLUME}"
 echo ">> ext volume: ${EXTENSIONS_VOLUME}"
 echo ">> port:       ${PORT}"
@@ -123,6 +136,8 @@ docker run -d \
   -p "127.0.0.1:${PORT}:${PORT}" \
   -e PORT="$PORT" \
   -e PROJECT_NAME="$PROJECT_NAME" \
+  -e HOST_UID="$HOST_UID" \
+  -e HOST_GID="$HOST_GID" \
   -v "${CLI_VOLUME}:/home/coder/.vscode" \
   -v "${CLAUDE_VOLUME}:/home/coder/.claude" \
   -v "${EXTENSIONS_VOLUME}:/home/coder/.vscode-server/extensions" \

@@ -31,10 +31,9 @@ PREFIX="vscode-"
 
 # ---- colour ----------------------------------------------------------------
 #
-# Palette semantics, same grammar as claude-in-docker/scripts/colors.sh: dim for
-# structure (the ">>" marker, parenthetical hints), cyan for the value being
-# named (container, volume, path, port), green for a confirmation, yellow for a
-# warning, bold red for an error.
+# Palette semantics: dim for structure (the ">>" marker, parenthetical hints),
+# cyan for the value being named (container, volume, path, port), green for a
+# confirmation, yellow for a warning, bold red for an error.
 #
 # Colour is decided twice, once per stream, because the two are used for
 # different things here and can be redirected independently: `vsc ls | less`
