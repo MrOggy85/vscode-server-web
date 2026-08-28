@@ -20,17 +20,18 @@ DOMAINS_FILE="/etc/allowed-domains.txt"
 # (api.githubcopilot.com notably moves around GitHub's 140.82.112.0/20 block).
 # A one-shot resolution at startup therefore goes stale: a later connection hits
 # a freshly-rotated IP that was never added, and the reject rule below drops it.
-# A background loop re-resolves the allowlist every REFRESH_SECS and tops up the
-# nft set. Set to 0 to disable the refresher (startup resolution only).
+# A background loop re-resolves the allowlist every REFRESH_SECS and renews the
+# nft set. Set to 0 to disable the refresher (startup resolution only); that also
+# drops the element timeout below, since nothing would renew it.
 REFRESH_SECS=30
 
 log() { echo "[firewall] $*" >&2; }
 
-# Resolve every hostname in $DOMAINS_FILE and add any new IPv4 addresses to the
-# nft set. Pass "1" for verbose startup logging (one line per host); pass "0" for
-# the background refresher, which logs only the IPs it newly adds.
+# Resolve every hostname in $DOMAINS_FILE and add or renew its IPv4 addresses in
+# the nft set. Pass "1" for verbose startup logging (one line per host); pass "0"
+# for the background refresher, which logs only the IPs it newly adds.
 refresh_allowlist() {
-  local verbose="$1" domain ips ip
+  local verbose="$1" domain ips ip txn
   while IFS= read -r domain || [[ -n "$domain" ]]; do
     [[ "$domain" =~ ^[[:space:]]*# || -z "${domain//[[:space:]]/}" ]] && continue
     ips=$(dig +short +timeout=5 "$domain" 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' || true)
@@ -38,11 +39,19 @@ refresh_allowlist() {
       [[ "$verbose" == "1" ]] && log "warn: could not resolve $domain"
       continue
     fi
+    # Re-adding an existing element is not guaranteed to reset its timer, so a
+    # present address is deleted and re-added instead. Both statements ride one
+    # `nft -f` transaction, so it is never momentarily absent from the set.
+    txn=""
     while IFS= read -r ip; do
-      if nft add element inet firewall allowed-ips "{ $ip }" 2>/dev/null && [[ "$verbose" != "1" ]]; then
+      if nft get element inet firewall allowed-ips "{ $ip }" >/dev/null 2>&1; then
+        txn+="delete element inet firewall allowed-ips { $ip }"$'\n'
+      elif [[ "$verbose" != "1" ]]; then
         log "refresh: +$ip ($domain)"
       fi
+      txn+="add element inet firewall allowed-ips { $ip }"$'\n'
     done <<< "$ips"
+    printf '%s' "$txn" | nft -f - 2>/dev/null || log "warn: could not update set for $domain"
     [[ "$verbose" == "1" ]] && log "$domain → $(echo "$ips" | tr '\n' ' ')"
   done < "$DOMAINS_FILE"
   return 0
@@ -78,13 +87,26 @@ fi
 #
 # `ip daddr @allowed-ips` matches IPv4 only, which is what the allowlist holds;
 # IPv6 packets fall through to the reject. See the header comment.
-nft -f - <<'NFT_EOF'
+
+# Elements expire unless the refresher renews them, so an address that rotates
+# away from an allowed host stops being permitted instead of lasting the
+# container's lifetime. 10m is 20 refresh cycles of slack, so a transient DNS
+# failure does not cut egress. No refresher means no renewal, hence no timeout.
+SET_TIMEOUT=""
+if (( REFRESH_SECS > 0 )); then
+  SET_TIMEOUT="
+        flags timeout
+        timeout 10m"
+fi
+
+# Heredoc is unquoted for ${SET_TIMEOUT} — keep the ruleset free of $ and `.
+nft -f - <<NFT_EOF
 table inet firewall
 delete table inet firewall
 
 table inet firewall {
     set allowed-ips {
-        type ipv4_addr
+        type ipv4_addr${SET_TIMEOUT}
     }
 
     chain input {
