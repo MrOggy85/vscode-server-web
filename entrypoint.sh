@@ -76,19 +76,30 @@ generate_keybindings_extension() {
     metadata: { installedTimestamp: 0, source: "vsix" }
   }')
 
+  # Any existing registry must parse as a JSON array. Treating an unreadable one
+  # as empty would rewrite it with only our entry, uninstalling every
+  # Marketplace extension. A fresh volume has no file at all, which -s covers.
   existing='[]'
   if [ -s "${ext_root}/extensions.json" ]; then
-    existing=$(jq -c 'if type == "array" then . else [] end' \
-      "${ext_root}/extensions.json" 2>/dev/null) || existing='[]'
+    if ! existing=$(jq -ce 'if type == "array" then . else error("not a JSON array") end' \
+      "${ext_root}/extensions.json"); then
+      echo "[entrypoint] ${ext_root}/extensions.json is unreadable — refusing to rewrite it" >&2
+      exit 1
+    fi
   fi
 
-  # Write via a temp file so a jq failure can't leave a truncated registry.
+  # Temp file first, so a partial jq run cannot truncate the registry. Failure is
+  # fatal: carrying on would either skip the keybindings silently, or leave
+  # extensions.json absent and fail at the chown below, naming the wrong culprit.
   tmp=$(mktemp)
-  if jq -n --argjson existing "$existing" --argjson entry "$entry" \
+  if ! jq -n --argjson existing "$existing" --argjson entry "$entry" \
     '[$existing[] | select(.identifier.id != $entry.identifier.id)] + [$entry]' > "$tmp"
   then
-    cat "$tmp" > "${ext_root}/extensions.json"
+    rm -f "$tmp"
+    echo "[entrypoint] could not build ${ext_root}/extensions.json" >&2
+    exit 1
   fi
+  cat "$tmp" > "${ext_root}/extensions.json"
   rm -f "$tmp"
 
   # Only the paths this function created as root — the rest of the shared
