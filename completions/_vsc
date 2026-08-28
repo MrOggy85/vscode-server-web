@@ -1,8 +1,8 @@
 #compdef vsc
 # zsh completion for the `vsc` CLI.
 #
-# Install: see the "Shell completion" section in README.md. In short, put this
-# file's directory on $fpath before compinit, e.g. add to ~/.zshrc:
+# Install: see "Shell completion" in docs/managing-instances.md. In short, put
+# this file's directory on $fpath before compinit, e.g. add to ~/.zshrc:
 #
 #   fpath=(/path/to/repo/completions $fpath)
 #   autoload -Uz compinit && compinit
