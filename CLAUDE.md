@@ -21,4 +21,14 @@ This repo builds and runs a VS Code Server (serve-web) Docker container — one 
 - `docs/` — troubleshooting, known issues, VS Code quirks, Claude Code usage
 
 ## Inline Comments
-Keep it breif, tight, no prose. Shorter is better.
+Keep it brief, tight, no prose. Shorter is better.
+
+## Docs
+Optimise for the reader's context budget — human or agent.
+
+- One home per fact. Link, don't restate.
+- Don't document what `--help` or the code already says.
+- Cut anything that doesn't change what the reader does.
+- Keep the *why* when it isn't derivable from the code — that is what earns its context.
+
+Unlike inline comments, full sentences are fine; the reader has no adjacent code to lean on.

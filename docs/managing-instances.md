@@ -22,31 +22,9 @@ protects the shared volumes.
 
 ## Commands
 
-```bash
-./vsc ls                      # list instances: status, port, folder, volumes
-./vsc stop       <selector>   # stop and remove a running instance (container only)
-./vsc rm-volumes <selector>   # remove an instance and ALL its volumes, shared included
-./vsc destroy    <selector>   # remove an instance, keeping the shared volumes
-```
+`./vsc --help` lists the commands, the selector syntax and the flags.
 
-`rm-volumes` and `destroy` both remove the container. That is not a convenience —
-Docker refuses to delete a volume that any container still references, running
-**or** stopped, so an instance's volumes cannot be dropped while the instance
-exists. The two differ in what they spare: `destroy` always keeps the three
-shared volumes, `rm-volumes` does not.
-
-`<selector>` matches an exact container name, or a substring of the container
-name **or** the project folder name — so `./vsc stop myproject` works. If a
-selector matches more than one instance, `vsc` lists them and aborts.
-
-### Flags
-
-- `-y`, `--yes` — skip confirmation prompts.
-- `-f`, `--force` — also attempt volumes shared with *other* instances
-  (`rm-volumes` and `destroy`; see the protected-volume note below).
-- `--no-color` — disable colour.
-
-### Colour
+## Colour
 
 Output is colour-coded: cyan for the thing being named (container, volume,
 path), green for a completed action, yellow for a skip, bold red for an error,
@@ -84,20 +62,16 @@ you override `VSCODE_CLI_VOLUME` / `CLAUDE_VOLUME` /
 # CONTAINER                    STATUS    PORT    FOLDER                  VOLUMES
 # vscode-myapp-1a2b3c4d5e      running   24817   /Users/me/code/myapp    vscode-cli,vscode-claude-credentials,vscode-extensions
 
-./vsc stop myapp               # stop + remove just the container
-./vsc destroy myapp -y         # remove the container, keep shared volumes, no prompt
-./vsc rm-volumes myapp         # remove the container AND every volume it uses
+./vsc destroy myapp -y         # selector is a substring; -y skips the prompt
 ```
 
 ## Shell completion
 
-**zsh only.** `completions/_vsc` uses zsh's `compdef`/`_arguments`, and there is
-no bash equivalent — bash users get no completion. This is deliberate, not an
-oversight; `vsc` itself works the same under any shell.
+**zsh only** — `completions/_vsc` uses zsh's `compdef`/`_arguments` and has no
+bash equivalent. Deliberate, not an oversight; `vsc` itself works under any shell.
 
-`vsc` ships a zsh completion at `completions/_vsc`. After `./vsc ` press Tab for
-subcommands; after `./vsc stop ` press Tab to list live instances by container
-name and folder name.
+After `./vsc ` press Tab for subcommands; after `./vsc stop ` press Tab to list
+live instances by container and folder name.
 
 Install (zsh, Homebrew) by symlinking it onto your existing `fpath`:
 

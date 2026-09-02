@@ -18,7 +18,7 @@ Options:
       --rebuild    rebuild the image even if the build context is unchanged
 
 Environment:
-  PORT                     same as --port
+  PORT                     same as --port, which wins if both are given
   VSCODE_MATCH_HOST_UID    0 to run as the image's fixed 1000:1000 instead of your uid:gid
   VSCODE_CONTAINER         override the derived container name
   VSCODE_CLI_VOLUME        volume holding the downloaded VS Code server (default: vscode-cli)
