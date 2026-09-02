@@ -129,7 +129,7 @@ Marketplace extensions download their package bytes from a per-publisher CDN hos
 
 ## Troubleshooting
 
-See [docs/troubleshooting.md](docs/troubleshooting.md).
+See [docs/troubleshooting.md](docs/troubleshooting.md) for problems with a fix, and [docs/known-issues.md](docs/known-issues.md) for accepted limitations.
 
 ## Development
 

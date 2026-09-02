@@ -18,7 +18,7 @@ This repo builds and runs a VS Code Server (serve-web) Docker container — one 
 ## Further reading
 
 - `README.md` — setup, usage, and configuration
-- `docs/` — troubleshooting, VS Code quirks, Claude Code usage
+- `docs/` — troubleshooting, known issues, VS Code quirks, Claude Code usage
 
 ## Inline Comments
 Keep it breif, tight, no prose. Shorter is better.
