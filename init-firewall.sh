@@ -99,7 +99,24 @@ if (( REFRESH_SECS > 0 )); then
         timeout 10m"
 fi
 
-# Heredoc is unquoted for ${SET_TIMEOUT} — keep the ruleset free of $ and `.
+# DNS only to the resolvers this container was given, not to any address. A
+# blanket port-53 accept is a two-way tunnel to any server on the internet:
+# pick an attacker's nameserver, encode data in the name you look up, and the
+# allowlist is never consulted. Narrowing to resolv.conf leaves only the
+# residual leak through recursion, which no packet filter can see.
+#
+# Loopback resolvers (Docker's 127.0.0.11) are already covered by `oifname lo`;
+# emitted anyway so the ruleset states the intent rather than relying on it.
+DNS_RULES=""
+while read -r ns; do
+  DNS_RULES+="        ip daddr ${ns} udp dport 53 accept"$'\n'
+  DNS_RULES+="        ip daddr ${ns} tcp dport 53 accept"$'\n'
+  log "dns: allow ${ns}"
+done < <(awk '/^[[:space:]]*nameserver[[:space:]]/ && $2 ~ /^[0-9.]+$/ { print $2 }' \
+           /etc/resolv.conf 2>/dev/null || true)
+[[ -z "$DNS_RULES" ]] && log "warn: no IPv4 nameserver in /etc/resolv.conf — DNS will be blocked"
+
+# Heredoc is unquoted for the injected rules — keep the ruleset free of $ and `.
 nft -f - <<NFT_EOF
 table inet firewall
 delete table inet firewall
@@ -119,9 +136,7 @@ table inet firewall {
         type filter hook output priority 0; policy drop;
         oifname "lo" accept
         ct state established,related accept
-        udp dport 53 accept
-        tcp dport 53 accept
-        ip daddr @allowed-ips accept
+${DNS_RULES}        ip daddr @allowed-ips accept
         meta l4proto tcp reject with tcp reset
         reject
     }

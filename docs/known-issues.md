@@ -3,6 +3,25 @@
 Accepted limitations and the reasoning for leaving them. Distinct from
 [troubleshooting.md](troubleshooting.md), which covers problems that have a fix.
 
+## DNS exfiltration through the configured resolver
+
+**Applies to:** all setups.
+
+Outbound DNS is restricted to the nameservers in the container's
+`/etc/resolv.conf`, so a process cannot open a socket to a DNS server of its
+choosing. It can still smuggle data out through the resolver it *is* allowed to
+use: ask for `<data>.attacker.example`, and the resolver recursively walks down
+to the attacker's own nameserver, passing the full name along.
+
+**Why it is not fixed:** a packet filter matches addresses, not the names inside
+the packet. Closing this needs a DNS proxy that refuses queries for names outside
+`allowed-domains.txt`. A CONNECT proxy does not help — it resolves the name
+before deciding to refuse the connection.
+
+**Scope:** requires an attacker already executing code in the container, and the
+channel is slow and conspicuous. The serious half — a direct two-way tunnel to
+any nameserver on the internet — is closed.
+
 ## Mounted `settings.json` changes owner under `VSCODE_MATCH_HOST_UID=0`
 
 **Applies to:** native Linux Docker, and only with `VSCODE_MATCH_HOST_UID=0` set.
