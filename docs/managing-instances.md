@@ -91,6 +91,10 @@ you override `VSCODE_CLI_VOLUME` / `CLAUDE_VOLUME` /
 
 ## Shell completion
 
+**zsh only.** `completions/_vsc` uses zsh's `compdef`/`_arguments`, and there is
+no bash equivalent — bash users get no completion. This is deliberate, not an
+oversight; `vsc` itself works the same under any shell.
+
 `vsc` ships a zsh completion at `completions/_vsc`. After `./vsc ` press Tab for
 subcommands; after `./vsc stop ` press Tab to list live instances by container
 name and folder name.
