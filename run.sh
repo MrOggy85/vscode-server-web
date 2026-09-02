@@ -4,7 +4,63 @@ set -euo pipefail
 IMAGE="vscode-serve-web:local"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PROJECT_DIR="$(cd "${1:-.}" && pwd)"
+usage() {
+  cat <<'EOF'
+Usage: run.sh [options] [path/to/project]
+
+Starts a VS Code Server (serve-web) container for a project, building the image
+first if the build context changed. Defaults to the current directory.
+
+Options:
+  -h, --help       show this help
+      --port N     host port to publish on (default: derived from the project path)
+      --no-open    do not open a browser afterwards
+      --rebuild    rebuild the image even if the build context is unchanged
+
+Environment:
+  PORT                     same as --port
+  VSCODE_MATCH_HOST_UID    0 to run as the image's fixed 1000:1000 instead of your uid:gid
+  VSCODE_CONTAINER         override the derived container name
+  VSCODE_CLI_VOLUME        volume holding the downloaded VS Code server (default: vscode-cli)
+  VSCODE_EXTENSIONS_VOLUME volume holding installed extensions (default: vscode-extensions)
+  CLAUDE_VOLUME            volume holding Claude Code credentials (default: vscode-claude-credentials)
+EOF
+}
+
+NO_OPEN=0
+FORCE_REBUILD=0
+PORT_FLAG=""
+POS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage; exit 0;;
+    --no-open) NO_OPEN=1; shift;;
+    --rebuild) FORCE_REBUILD=1; shift;;
+    --port)
+      [[ $# -ge 2 ]] || { echo "run.sh: --port needs a value" >&2; exit 1; }
+      PORT_FLAG="$2"; shift 2;;
+    --port=*)  PORT_FLAG="${1#*=}"; shift;;
+    --)        shift; while [[ $# -gt 0 ]]; do POS+=("$1"); shift; done;;
+    -*)        echo "run.sh: unknown option: $1" >&2; usage >&2; exit 1;;
+    *)         POS+=("$1"); shift;;
+  esac
+done
+
+if [[ ${#POS[@]} -gt 1 ]]; then
+  echo "run.sh: expected at most one project path, got ${#POS[@]}" >&2
+  exit 1
+fi
+if [[ -n "$PORT_FLAG" ]]; then
+  if [[ ! "$PORT_FLAG" =~ ^[0-9]+$ ]] || (( 10#$PORT_FLAG < 1 || 10#$PORT_FLAG > 65535 )); then
+    echo "run.sh: --port must be 1-65535, got '$PORT_FLAG'" >&2
+    exit 1
+  fi
+fi
+
+PROJECT_ARG="."
+[[ ${#POS[@]} -eq 1 ]] && PROJECT_ARG="${POS[0]}"
+[ -d "$PROJECT_ARG" ] || { echo "run.sh: not a directory: $PROJECT_ARG" >&2; exit 1; }
+PROJECT_DIR="$(cd "$PROJECT_ARG" && pwd)"
 
 # Stable per-project names: vscode-<dirname>-<short hash of full path>.
 # The hash disambiguates same-named dirs in different locations.
@@ -39,9 +95,11 @@ context_hash() {
 CURRENT_HASH="$(context_hash)"
 IMAGE_HASH="$(docker image inspect "${IMAGE}" --format '{{index .Config.Labels "build.context-hash"}}' 2>/dev/null || true)"
 
-if [[ "$IMAGE_HASH" != "$CURRENT_HASH" ]]; then
-  [[ -n "$IMAGE_HASH" ]] && echo ">> build context changed — rebuilding ${IMAGE}..." \
-                          || echo ">> image not found — building ${IMAGE}..."
+if [[ "$FORCE_REBUILD" == 1 || "$IMAGE_HASH" != "$CURRENT_HASH" ]]; then
+  if [[ "$FORCE_REBUILD" == 1 ]]; then echo ">> --rebuild — building ${IMAGE}..."
+  elif [[ -n "$IMAGE_HASH" ]];    then echo ">> build context changed — rebuilding ${IMAGE}..."
+  else                                 echo ">> image not found — building ${IMAGE}..."
+  fi
   docker build --tag "${IMAGE}" --label "build.context-hash=${CURRENT_HASH}" "${SCRIPT_DIR}"
 fi
 
@@ -62,9 +120,10 @@ CLAUDE_VOLUME="${CLAUDE_VOLUME:-vscode-claude-credentials}"
 EXTENSIONS_VOLUME="${VSCODE_EXTENSIONS_VOLUME:-vscode-extensions}"
 PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
-# Derive a stable default port in 10000-59999 from the path hash; override with PORT=...
+# Derive a stable default port in 10000-59999 from the path hash. Precedence:
+# --port, then PORT, then the derived default.
 DEFAULT_PORT=$(( 10000 + ( 0x$(printf '%s' "${HASH}" | cut -c1-4) % 50000 ) ))
-PORT="${PORT:-$DEFAULT_PORT}"
+PORT="${PORT_FLAG:-${PORT:-$DEFAULT_PORT}}"
 
 # Run as your uid:gid so files the container writes into the project are yours.
 # Otherwise it writes as 1000, and another container running as your uid cannot
@@ -154,8 +213,10 @@ echo ">> Container started."
 echo ">> Open: $URL"
 
 # Open the browser automatically (macOS uses `open`, Linux uses `xdg-open`).
-if command -v open >/dev/null 2>&1; then
-  open "$URL" 2>/dev/null || true
-elif command -v xdg-open >/dev/null 2>&1; then
-  xdg-open "$URL" 2>/dev/null || true
+if [[ "$NO_OPEN" == 0 ]]; then
+  if command -v open >/dev/null 2>&1; then
+    open "$URL" 2>/dev/null || true
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$URL" 2>/dev/null || true
+  fi
 fi
