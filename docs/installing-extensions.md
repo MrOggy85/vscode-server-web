@@ -1,6 +1,6 @@
 # Installing VS Code extensions
 
-Installs are shared across all instances via the `vscode-extensions` volume —
+Installs are shared across all instances via the `vscode-extensions` volume,
 see [sharing-extensions.md](sharing-extensions.md). This page covers the
 firewall failure you hit while installing.
 
@@ -16,7 +16,7 @@ Installing an extension from the Marketplace fails. The Output panel (or
 ```
 
 The error is `ECONNREFUSED` (an *active* refusal, not a timeout) because the
-outbound firewall rejects un-allowed hosts with a TCP RST — see
+outbound firewall rejects un-allowed hosts with a TCP RST, see
 [init-firewall.sh](../init-firewall.sh).
 
 ## Cause
@@ -40,7 +40,7 @@ the first still fails at the redirect. Allow **both**.
 
 ### Why you can't just add one wildcard
 
-`allowed-domains.txt` does not support wildcards — each entry is resolved with
+`allowed-domains.txt` does not support wildcards; each entry is resolved with
 `dig`. The CDN uses a per-publisher subdomain
 (`ms-python.gallerycdn.vsassets.io`, `denoland.gallerycdn.vsassets.io`, …), so
 you must add the specific publisher hosts for each extension you install.
@@ -71,5 +71,5 @@ you must add the specific publisher hosts for each extension you install.
    ```
 
 If you install many extensions, the per-publisher limitation is worth raising
-with whoever owns the firewall — a proxy exception for `*.vsassets.io` would
+with whoever owns the firewall: a proxy exception for `*.vsassets.io` would
 remove the need to allowlist each publisher by hand.

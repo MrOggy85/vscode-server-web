@@ -1,6 +1,6 @@
 # Copy to .gitignore_global (gitignored) and edit. This file is mounted read-only
 # into the container at ~/.config/git/ignore, which git reads automatically when
-# core.excludesFile is unset (the XDG convention) — so no .gitconfig entry is
+# core.excludesFile is unset (the XDG convention), so no .gitconfig entry is
 # required.
 #
 # Patterns here apply to every repository you work in inside the container. Use

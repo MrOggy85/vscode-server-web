@@ -11,7 +11,7 @@ SHELL_SOURCES := vsc \
 
 # Scripts invoked as ./name, so the committed mode has to be 100755. An editor
 # dropping it produces a "Permission denied" that looks nothing like a mode
-# problem. entrypoint.sh and init-firewall.sh are absent on purpose — the
+# problem. entrypoint.sh and init-firewall.sh are absent on purpose: the
 # Dockerfile chmods those, and make init chmods install_additional_packages.sh.
 EXECUTABLES := run.sh vsc
 

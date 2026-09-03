@@ -1,11 +1,11 @@
 #!/bin/bash
 # Configures outbound firewall at container start (runs as root, before privilege drop).
-# Uses nftables — works in containers with NET_ADMIN without requiring host kernel modules.
-# Allowed domains are baked into the image at /etc/allowed-domains.txt — rebuild to change them.
+# Uses nftables: works in containers with NET_ADMIN without requiring host kernel modules.
+# Allowed domains are baked into the image at /etc/allowed-domains.txt; rebuild to change them.
 #
 # One dual-stack `inet` table, so a single ruleset governs IPv4 and IPv6. This
 # matters: an `ip`-family table installs no IPv6 hook at all, so v6 output is
-# unfiltered — the drop policy simply does not apply to it. The allowlist is
+# unfiltered: the drop policy simply does not apply to it. The allowlist is
 # resolved from A records only, so IPv6 has no accept rule and falls through to
 # the reject at the bottom of the output chain. That is deliberate: v6 fails
 # closed. Because the reject is immediate rather than a timeout, a dual-stack
@@ -71,7 +71,7 @@ fi
 OPEN_PORTS="${1:-}"
 
 if [[ ! -f "$DOMAINS_FILE" ]]; then
-  log "no domains file at $DOMAINS_FILE — skipping"
+  log "no domains file at $DOMAINS_FILE, skipping"
   exit 0
 fi
 
@@ -80,7 +80,7 @@ fi
 #
 # Replaces only our own table, rather than `nft flush ruleset`. A full flush
 # wipes every table in the container's network namespace, including the ones
-# Docker installs there — the DNAT for the embedded DNS resolver (127.0.0.11:53)
+# Docker installs there: the DNAT for the embedded DNS resolver (127.0.0.11:53)
 # and the published-port DNAT. The bare `table inet firewall` line creates the
 # table if it does not exist, so the `delete` on the next line never errors on a
 # cold start. `nft -f` applies the whole file as one transaction.
@@ -114,9 +114,9 @@ while read -r ns; do
   log "dns: allow ${ns}"
 done < <(awk '/^[[:space:]]*nameserver[[:space:]]/ && $2 ~ /^[0-9.]+$/ { print $2 }' \
            /etc/resolv.conf 2>/dev/null || true)
-[[ -z "$DNS_RULES" ]] && log "warn: no IPv4 nameserver in /etc/resolv.conf — DNS will be blocked"
+[[ -z "$DNS_RULES" ]] && log "warn: no IPv4 nameserver in /etc/resolv.conf, DNS will be blocked"
 
-# Heredoc is unquoted for the injected rules — keep the ruleset free of $ and `.
+# Heredoc is unquoted for the injected rules; keep the ruleset free of $ and `.
 nft -f - <<NFT_EOF
 table inet firewall
 delete table inet firewall

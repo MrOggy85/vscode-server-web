@@ -14,7 +14,7 @@ The two halves of "having an extension" are stored in different places in
 | **Enabled / disabled** | browser IndexedDB (User-scoped state, like User settings) | per origin |
 
 `run.sh` mounts the named volume `vscode-extensions` at
-`/home/coder/.vscode-server/extensions`, shared by every instance — so an
+`/home/coder/.vscode-server/extensions`, shared by every instance, so an
 install from any container is immediately an install for all of them.
 
 Enablement needs no work at all: each instance gets its own port, so each is its
@@ -24,7 +24,7 @@ extension in one instance leaves it enabled in the others.
 ## Using it
 
 1. Start any instance and install extensions from the Extensions view as usual.
-   Marketplace downloads are firewalled per publisher — see
+   Marketplace downloads are firewalled per publisher, see
    [installing-extensions.md](installing-extensions.md).
 2. Every instance started afterwards has them installed already.
 3. In an instance where you don't want one, use **Disable** (not Uninstall) in

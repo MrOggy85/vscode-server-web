@@ -16,7 +16,7 @@ Run once after cloning:
 make init
 ```
 
-This creates `install_additional_packages.sh`, `allowed-domains.txt` and `settings.json` from their example files. All three are gitignored — your edits stay local. Existing files are left alone, so it is safe to re-run.
+This creates `install_additional_packages.sh`, `allowed-domains.txt` and `settings.json` from their example files. All three are gitignored, so your edits stay local. Existing files are left alone, so it is safe to re-run.
 
 See [Additional packages](#additional-packages) if you want to pre-install tools into the image.
 
@@ -28,7 +28,7 @@ See [Additional packages](#additional-packages) if you want to pre-install tools
 
 Defaults to the current directory. Container name and port are derived from the project path, so concurrent projects don't collide. `./run.sh --help` lists the flags and environment variables.
 
-The image builds on first run and rebuilds whenever a file it is built from changes. Files that are *mounted* instead — `settings.json`, `keybindings.json`, `.gitconfig`, `.gitignore_global`, `.bash_aliases` — take effect on the next run with no rebuild.
+The image builds on first run and rebuilds whenever a file it is built from changes. Files that are *mounted* instead (`settings.json`, `keybindings.json`, `.gitconfig`, `.gitignore_global`, `.bash_aliases`) take effect on the next run with no rebuild.
 
 ## User settings
 
@@ -38,11 +38,11 @@ VS Code user settings are loaded from `settings.json` in this repo and mounted i
 
 Changes take effect on the next `./run.sh` (the container is recreated each run).
 
-If the file is missing, `run.sh` says so and starts without machine settings rather than mounting a nonexistent path — Docker would otherwise materialise a `settings.json/` *directory* in the repo root.
+If the file is missing, `run.sh` says so and starts without machine settings rather than mounting a nonexistent path. Docker would otherwise materialise a `settings.json/` *directory* in the repo root.
 
 ## Keybindings
 
-Keybindings can't be mounted like `settings.json`. VS Code keybindings are strictly *User-scoped* (there is no Machine-scope keybindings file), and in `serve-web` all User data lives in the browser, not on the server filesystem — so a mounted `keybindings.json` is simply never read. See [docs/vscode-quirks.md](docs/vscode-quirks.md) for the full explanation.
+Keybindings can't be mounted like `settings.json`. VS Code keybindings are strictly *User-scoped* (there is no Machine-scope keybindings file), and in `serve-web` all User data lives in the browser, not on the server filesystem, so a mounted `keybindings.json` is simply never read. See [docs/vscode-quirks.md](docs/vscode-quirks.md) for the full explanation.
 
 Instead, the keybindings are applied across all containers via a small server-side extension that the entrypoint generates from your `keybindings.json` at startup.
 
@@ -50,8 +50,8 @@ Instead, the keybindings are applied across all containers via a small server-si
    ```bash
    cp keybindings.json.example keybindings.json
    ```
-2. Edit `keybindings.json` — it is a plain JSON array of `{ "key", "command" }` entries, same as VS Code's `keybindings.json` (no `//` comments — it is parsed as strict JSON).
-3. `keybindings.json` is gitignored — your personal bindings stay local.
+2. Edit `keybindings.json`. It is a plain JSON array of `{ "key", "command" }` entries, same as VS Code's `keybindings.json` (no `//` comments; it is parsed as strict JSON).
+3. `keybindings.json` is gitignored, so your personal bindings stay local.
 
 Changes take effect on the next `./run.sh`. The file is mounted (not baked into the image), so editing it does not trigger a rebuild.
 
@@ -64,7 +64,7 @@ Set the git `user.name` / `user.email` used by git inside the container via a `.
    cp .gitconfig.example .gitconfig
    ```
 2. Edit `.gitconfig` with your name and email.
-3. `.gitconfig` is gitignored — your identity stays local.
+3. `.gitconfig` is gitignored, so your identity stays local.
 
 Changes take effect on the next `./run.sh`. The file is mounted (not baked into the image), so editing it does not trigger a rebuild.
 
@@ -92,9 +92,9 @@ The image is rebuilt automatically by `run.sh` whenever this file changes.
 
 ## File ownership
 
-The container runs as your host uid:gid, so anything it writes into the project — a `pnpm install`, a build output — is owned by you rather than by the container's internal user.
+The container runs as your host uid:gid, so anything it writes into the project (a `pnpm install`, a build output) is owned by you rather than by the container's internal user.
 
-This matters most when another container works on the same project. If it runs as your uid — `--user "$(id -u):$(id -g)"` — and this one had written as a different uid, it could not modify a `node_modules` installed here.
+This matters most when another container works on the same project. If it runs as your uid (`--user "$(id -u):$(id -g)"`) and this one had written as a different uid, it could not modify a `node_modules` installed here.
 
 On macOS the mismatch is easy to miss, because it is invisible from the Mac side: the VM performs writes as your host user, so `ls -l` on macOS looks correct whatever uid wrote the file. Inside the Linux VM the file still carries the writing container's uid, which is where the conflict shows up.
 
@@ -114,9 +114,9 @@ Claude Code is pre-installed and available from the VS Code terminal. See [docs/
 
 ## Extensions
 
-Installed extensions live in the shared `vscode-extensions` volume, so you install an extension once and every instance has it. Enable/disable is per instance — extension enablement is stored in the browser, and each instance has its own port, hence its own origin. Use **Disable** rather than Uninstall to turn one off for a single project; uninstalling removes it everywhere. See [docs/sharing-extensions.md](docs/sharing-extensions.md).
+Installed extensions live in the shared `vscode-extensions` volume, so you install an extension once and every instance has it. Enable/disable is per instance: extension enablement is stored in the browser, and each instance has its own port, hence its own origin. Use **Disable** rather than Uninstall to turn one off for a single project; uninstalling removes it everywhere. See [docs/sharing-extensions.md](docs/sharing-extensions.md).
 
-Marketplace extensions download their package bytes from a per-publisher CDN host that the outbound firewall blocks by default — installs fail with `ECONNREFUSED` until you allowlist that host. See [docs/installing-extensions.md](docs/installing-extensions.md).
+Marketplace extensions download their package bytes from a per-publisher CDN host that the outbound firewall blocks by default, so installs fail with `ECONNREFUSED` until you allowlist that host. See [docs/installing-extensions.md](docs/installing-extensions.md).
 
 ## Troubleshooting
 
@@ -128,6 +128,6 @@ See [docs/troubleshooting.md](docs/troubleshooting.md) for problems with a fix, 
 make lint
 ```
 
-Shellchecks every script in the repo, and checks that `run.sh` and `vsc` are still executable. CI runs the same target on push and PR, so a green `make lint` locally means a green CI. It needs no `make init` — only committed files are linted.
+Shellchecks every script in the repo, and checks that `run.sh` and `vsc` are still executable. CI runs the same target on push and PR, so a green `make lint` locally means a green CI. It needs no `make init`; only committed files are linted.
 
-CI also builds the image and smoke-tests it, but only when a file the image is built from changes — the same set that triggers a local rebuild.
+CI also builds the image and smoke-tests it, but only when a file the image is built from changes, the same set that triggers a local rebuild.

@@ -40,7 +40,7 @@ RUN apt-get update \
 # Download Microsoft's official VS Code CLI for the container's architecture.
 # `latest` resolves at build time and fixes the CLI only. The server bundle is a
 # separate runtime download into the vscode-cli volume, and follows upstream
-# stable on its own — pinning this line would not freeze it.
+# stable on its own. Pinning this line would not freeze it.
 RUN set -eux; \
     case "$(uname -m)" in \
       x86_64)  a=cli-linux-x64 ;; \
@@ -79,12 +79,12 @@ RUN cat > /home/coder/.claude.json <<'JSON'
 }
 JSON
 
-# Trust any mounted workspace — git 2.35.2+ rejects directories owned by a
+# Trust any mounted workspace: git 2.35.2+ rejects directories owned by a
 # different user, which breaks VS Code's source control view for bind mounts.
 RUN git config --system --add safe.directory '*'
 
 # `extensions` is created here (rather than left to Docker) so the shared
-# extensions volume inherits coder ownership when it is initialised empty —
+# extensions volume inherits coder ownership when it is initialised empty.
 # Docker copies the image path's uid/gid onto a fresh named volume.
 RUN mkdir -p /home/coder/.vscode-server/data/Machine \
              /home/coder/.vscode-server/extensions \

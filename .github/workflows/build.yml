@@ -4,13 +4,13 @@ name: Build
 # minutes (NodeSource, the VS Code CLI download, `npm ci`), so it should run only
 # when something the image is actually built from changes.
 #
-# This list mirrors context_hash() in run.sh — the set of files that trigger a
+# This list mirrors context_hash() in run.sh: the set of files that trigger a
 # local rebuild. Keep the two in sync: a file added to the Dockerfile needs
 # adding to context_hash() *and* here, or CI will not build it.
 #
 # Two entries are stand-ins. install_additional_packages.sh and
 # allowed-domains.txt are COPY'd by the Dockerfile but gitignored, so CI never
-# sees them — it builds from the .example files that `make init` copies into
+# sees them; it builds from the .example files that `make init` copies into
 # place, and those are what changes here. Makefile is listed because it owns that
 # substitution.
 on:
@@ -56,7 +56,7 @@ jobs:
 
       # The one job that needs `make init`. The Dockerfile COPYs
       # allowed-domains.txt and install_additional_packages.sh, both gitignored,
-      # so a bare checkout cannot build — init seeds them from their .example.
+      # so a bare checkout cannot build; init seeds them from their .example.
       - name: Seed gitignored build-context files
         run: make init
 
@@ -65,7 +65,7 @@ jobs:
 
       # A build that produces an image missing its tooling still "passes", so
       # check the things the Dockerfile installs are actually on PATH, and that
-      # the two scripts it chmods are still executable — a mode can silently
+      # the two scripts it chmods are still executable: a mode can silently
       # fail to carry across.
       - name: Smoke-test the image
         run: |

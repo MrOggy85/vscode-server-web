@@ -20,7 +20,7 @@ This opens a browser tab for OAuth. Once complete the credentials are stored in 
 
 ## Persistent credentials
 
-`~/.claude/` is backed by the named Docker volume `vscode-claude-credentials`, which is shared across all project containers started by `run.sh`. You only need to run `/login` once — every subsequent container reuses the same credentials automatically.
+`~/.claude/` is backed by the named Docker volume `vscode-claude-credentials`, which is shared across all project containers started by `run.sh`. You only need to run `/login` once; every subsequent container reuses the same credentials automatically.
 
 To verify which account is active:
 

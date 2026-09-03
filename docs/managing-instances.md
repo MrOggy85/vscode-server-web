@@ -7,13 +7,13 @@ creates. An **instance** is a single container named `vscode-<folder>-<hash>`.
 
 Each container started by `run.sh` mounts:
 
-- the **project folder** as a bind mount at `/workspace` — this is your real
+- the **project folder** as a bind mount at `/workspace`: this is your real
   source code on disk. `vsc` never deletes it.
-- **`vscode-cli`** — a named volume holding the downloaded VS Code server.
+- **`vscode-cli`**: a named volume holding the downloaded VS Code server.
   Shared by every instance.
-- **`vscode-claude-credentials`** — a named volume holding Claude Code auth.
+- **`vscode-claude-credentials`**: a named volume holding Claude Code auth.
   Shared by every instance (see [claude.md](claude.md)).
-- **`vscode-extensions`** — a named volume holding the installed extensions.
+- **`vscode-extensions`**: a named volume holding the installed extensions.
   Shared by every instance (see [sharing-extensions.md](sharing-extensions.md)).
 
 All three named volumes are **shared**, so removing them affects every project.
@@ -39,19 +39,19 @@ disables it.
 
 ## How removal stays safe
 
-- **Workspace folder** — a bind mount, never removed.
-- **`vscode-cli`, `vscode-claude-credentials` and `vscode-extensions`** —
+- **Workspace folder**: a bind mount, never removed.
+- **`vscode-cli`, `vscode-claude-credentials` and `vscode-extensions`**:
   `destroy` always **keeps** these, even with `--force`, so the next run reuses
   the VS Code server, your Claude credentials and your installed extensions
   instead of re-downloading / re-authenticating / reinstalling.
-- **Volumes used by other instances** — skipped by default. Pass `--force` to
+- **Volumes used by other instances**: skipped by default. Pass `--force` to
   attempt them anyway, but note that this only bypasses `vsc`'s own guard: Docker
   still refuses to delete a volume another container references, so a `--force`
   removal of a genuinely shared volume reports `could not remove`. Stop the other
   instances first.
 
 In practice, because the shared volumes are kept, `destroy` removes the
-container plus any *per-project* named volumes — of which there are none unless
+container plus any *per-project* named volumes, of which there are none unless
 you override `VSCODE_CLI_VOLUME` / `CLAUDE_VOLUME` /
 `VSCODE_EXTENSIONS_VOLUME` per project.
 
@@ -67,7 +67,7 @@ you override `VSCODE_CLI_VOLUME` / `CLAUDE_VOLUME` /
 
 ## Shell completion
 
-**zsh only** — `completions/_vsc` uses zsh's `compdef`/`_arguments` and has no
+**zsh only**: `completions/_vsc` uses zsh's `compdef`/`_arguments` and has no
 bash equivalent. Deliberate, not an oversight; `vsc` itself works under any shell.
 
 After `./vsc ` press Tab for subcommands; after `./vsc stop ` press Tab to list

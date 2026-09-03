@@ -6,23 +6,23 @@ set -euo pipefail
 /usr/local/bin/init-firewall.sh "${PORT}/tcp"
 
 # Run as the host uid:gid so /workspace writes are owned by the host user. On
-# macOS the VM writes as that user, so `ls -l` there looks right either way — but
+# macOS the VM writes as that user, so `ls -l` there looks right either way, but
 # inside the VM the file keeps this container's uid, which is what another
 # container on the same project sees.
 # run.sh always sends these; the fallback is for a hand-rolled `docker run`.
 TARGET_UID="${HOST_UID:-1000}"
 TARGET_GID="${HOST_GID:-1000}"
 
-# Never run the server as root — that is what the gosu drop is for.
+# Never run the server as root; that is what the gosu drop is for.
 if [ "$TARGET_UID" = "0" ] || [ "$TARGET_GID" = "0" ]; then
-  echo "[entrypoint] HOST_UID/HOST_GID of 0 refused — falling back to 1000:1000" >&2
+  echo "[entrypoint] HOST_UID/HOST_GID of 0 refused, falling back to 1000:1000" >&2
   TARGET_UID=1000
   TARGET_GID=1000
 fi
 
 # Edit passwd directly, not usermod -u: that chowns all of $HOME, walking every
 # installed extension and hitting the read-only .gitconfig mount (332e6f9).
-# Primary gid only, no /etc/group edit — a macOS gid 20 (staff) collides with
+# Primary gid only, no /etc/group edit: a macOS gid 20 (staff) collides with
 # dialout. Every chown below is numeric, so nothing needs the group name.
 if [ "$(id -u coder)" != "$TARGET_UID" ] || [ "$(id -g coder)" != "$TARGET_GID" ]; then
   echo "[entrypoint] running as ${TARGET_UID}:${TARGET_GID} (was $(id -u coder):$(id -g coder))" >&2
@@ -31,7 +31,7 @@ fi
 
 # Apply keybindings via a generated extension.
 #
-# VS Code keybindings are strictly User-scoped — there is no Machine-scope
+# VS Code keybindings are strictly User-scoped: there is no Machine-scope
 # keybindings file the way there is for settings, and in serve-web all User
 # data lives in the browser (IndexedDB), not on the server filesystem. So a
 # mounted keybindings.json is never read. The only server-side mechanism is an
@@ -40,7 +40,7 @@ fi
 #
 # `<server-data-dir>/extensions` IS a shared named volume (see run.sh) holding
 # every Marketplace extension installed from any instance, so this must merge
-# into `extensions.json` rather than rewrite it — a rewrite would uninstall them
+# into `extensions.json` rather than rewrite it; a rewrite would uninstall them
 # all on the next start.
 generate_keybindings_extension() {
   local src=/home/coder/keybindings.json
@@ -65,8 +65,7 @@ generate_keybindings_extension() {
 
   # extensions.json is the server's user-extension registry, shared with every
   # Marketplace extension installed from any instance. Replace only our own
-  # entry and keep the rest verbatim. A registry that isn't a readable JSON
-  # array is treated as empty — that is the fresh-volume case.
+  # entry and keep the rest verbatim.
   local entry existing tmp
   entry=$(jq -nc --arg dir "$ext_dir" --arg rel "${id}-${ver}" --arg id "$id" --arg ver "$ver" '{
     identifier: { id: $id },
@@ -83,7 +82,7 @@ generate_keybindings_extension() {
   if [ -s "${ext_root}/extensions.json" ]; then
     if ! existing=$(jq -ce 'if type == "array" then . else error("not a JSON array") end' \
       "${ext_root}/extensions.json"); then
-      echo "[entrypoint] ${ext_root}/extensions.json is unreadable — refusing to rewrite it" >&2
+      echo "[entrypoint] ${ext_root}/extensions.json is unreadable, refusing to rewrite it" >&2
       exit 1
     fi
   fi
@@ -102,7 +101,7 @@ generate_keybindings_extension() {
   cat "$tmp" > "${ext_root}/extensions.json"
   rm -f "$tmp"
 
-  # Only the paths this function created as root — the rest of the shared
+  # Only the paths this function created as root; the rest of the shared
   # extensions volume already belongs to the runtime user.
   chown -R "${TARGET_UID}:${TARGET_GID}" "$ext_dir" "${ext_root}/extensions.json"
 }
@@ -111,15 +110,15 @@ generate_keybindings_extension
 
 # Fix ownership only where it's actually needed: the named volumes (a fresh
 # named volume mounts root-owned) and the server data dir. Deliberately NOT a
-# recursive chown over all of /home/coder — that would hit the read-only
+# recursive chown over all of /home/coder: that would hit the read-only
 # .gitconfig bind mount and abort the entrypoint under `set -e`.
 EXT_ROOT=/home/coder/.vscode-server/extensions
 
-# Normally chowned non-recursively — recursing would walk every installed
+# Normally chowned non-recursively: recursing would walk every installed
 # extension on every start. A uid change is the exception: it strands them all
 # in the shared volume. The dir's own owner is the signal, so this runs once.
 if [ "$(stat -c %u "$EXT_ROOT")" != "$TARGET_UID" ]; then
-  echo "[entrypoint] extensions volume has a different owner — chowning once" >&2
+  echo "[entrypoint] extensions volume has a different owner, chowning once" >&2
   chown -R "${TARGET_UID}:${TARGET_GID}" "$EXT_ROOT"
 fi
 
@@ -168,7 +167,7 @@ patch_manifests
 # --disable-telemetry, not the `telemetry.telemetryLevel` setting: the mounted
 # Machine settings.json only controls the *send gate* (`getTelemetryLevel`), so
 # the server still builds its 1DS appender and keeps POSTing to
-# mobile.events.data.microsoft.com — which the firewall rejects, producing an
+# mobile.events.data.microsoft.com, which the firewall rejects, producing an
 # endless "OneCollector/1.0 - error POST connect ECONNREFUSED" stream in the
 # container log. The CLI forwards this flag to the server child, where
 # `supportsTelemetry()` short-circuits and no appender is created at all.

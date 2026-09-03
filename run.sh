@@ -74,7 +74,7 @@ sha256() {
 # TypeScript versions, and docs/CLAUDE.md documents `./run.sh` as the way to
 # apply a version bump.
 #
-# .github/workflows/build.yml gates its CI build on the same set — add a file
+# .github/workflows/build.yml gates its CI build on the same set. Add a file
 # here and it needs adding there too, or CI will not build the change.
 context_hash() {
   local files=(
@@ -96,9 +96,9 @@ CURRENT_HASH="$(context_hash)"
 IMAGE_HASH="$(docker image inspect "${IMAGE}" --format '{{index .Config.Labels "build.context-hash"}}' 2>/dev/null || true)"
 
 if [[ "$FORCE_REBUILD" == 1 || "$IMAGE_HASH" != "$CURRENT_HASH" ]]; then
-  if [[ "$FORCE_REBUILD" == 1 ]]; then echo ">> --rebuild — building ${IMAGE}..."
-  elif [[ -n "$IMAGE_HASH" ]];    then echo ">> build context changed — rebuilding ${IMAGE}..."
-  else                                 echo ">> image not found — building ${IMAGE}..."
+  if [[ "$FORCE_REBUILD" == 1 ]]; then echo ">> --rebuild: building ${IMAGE}..."
+  elif [[ -n "$IMAGE_HASH" ]];    then echo ">> build context changed, rebuilding ${IMAGE}..."
+  else                                 echo ">> image not found, building ${IMAGE}..."
   fi
   docker build --tag "${IMAGE}" --label "build.context-hash=${CURRENT_HASH}" "${SCRIPT_DIR}"
 fi
@@ -116,7 +116,7 @@ CLAUDE_VOLUME="${CLAUDE_VOLUME:-vscode-claude-credentials}"
 # Installed extensions, shared across every instance: install once, available in
 # all containers. Enable/disable stays per-container because extension
 # enablement is User-scoped state, which in serve-web lives in the browser's
-# IndexedDB — and each instance has its own port, hence its own origin.
+# IndexedDB, and each instance has its own port, hence its own origin.
 EXTENSIONS_VOLUME="${VSCODE_EXTENSIONS_VOLUME:-vscode-extensions}"
 PROJECT_NAME="$(basename "${PROJECT_DIR}")"
 
@@ -158,11 +158,11 @@ optional_mounts=()
 if [ -f "${SCRIPT_DIR}/settings.json" ]; then
   optional_mounts+=(-v "${SCRIPT_DIR}/settings.json:/home/coder/.vscode-server/data/Machine/settings.json")
 else
-  echo ">> note: no settings.json — starting without machine settings"
+  echo ">> note: no settings.json, starting without machine settings"
   echo ">>       create one with 'make init' (or cp settings.json.example settings.json)"
 fi
 
-# Shell aliases for the integrated terminal. Optional — only mounted when the
+# Shell aliases for the integrated terminal. Optional, only mounted when the
 # file exists.
 [ -f "${SCRIPT_DIR}/.bash_aliases" ] \
   && optional_mounts+=(-v "${SCRIPT_DIR}/.bash_aliases:/home/coder/.bash_aliases")
@@ -171,20 +171,20 @@ fi
 # strictly User-scoped (no Machine path), and in serve-web User data lives in
 # the browser, not the filesystem. Instead we hand the raw file to the
 # entrypoint, which turns it into a keybinding-contributing extension on the
-# server side. Optional — only mounted when the file exists.
+# server side. Optional, only mounted when the file exists.
 [ -f "${SCRIPT_DIR}/keybindings.json" ] \
   && optional_mounts+=(-v "${SCRIPT_DIR}/keybindings.json:/home/coder/keybindings.json")
 
 # git identity (user.name / user.email) for git inside the container. Mounted
 # read-only: the entrypoint's chown is scoped to the volume/server paths and
-# never touches this file, so :ro is safe and nothing writes to it. Optional —
+# never touches this file, so :ro is safe and nothing writes to it. Optional,
 # only mounted when the file exists.
 [ -f "${SCRIPT_DIR}/.gitconfig" ] \
   && optional_mounts+=(-v "${SCRIPT_DIR}/.gitconfig:/home/coder/.gitconfig:ro")
 
 # Global (user-level) gitignore. Mounted read-only at ~/.config/git/ignore, which
 # git reads automatically when core.excludesFile is unset (the XDG convention), so
-# no .gitconfig entry is required. Optional — only mounted when the file exists.
+# no .gitconfig entry is required. Optional, only mounted when the file exists.
 [ -f "${SCRIPT_DIR}/.gitignore_global" ] \
   && optional_mounts+=(-v "${SCRIPT_DIR}/.gitignore_global:/home/coder/.config/git/ignore:ro")
 

@@ -26,7 +26,7 @@ info [<commit> stderr]: #29: https://mobile.events.data.microsoft.com/OneCollect
 
 Setting `"telemetry.telemetryLevel": "off"` in the mounted Machine `settings.json` does **not** stop it. That setting drives `getTelemetryLevel()`, the per-event send gate; the appender itself is still constructed and still opens sockets.
 
-**Fix:** Already handled — `entrypoint.sh` passes `--disable-telemetry` to `code serve-web`, which the CLI forwards to the server child process. There, `supportsTelemetry()` returns false and the appender is replaced by a null one, so no connection is ever attempted.
+**Fix:** Already handled. `entrypoint.sh` passes `--disable-telemetry` to `code serve-web`, which the CLI forwards to the server child process. There, `supportsTelemetry()` returns false and the appender is replaced by a null one, so no connection is ever attempted.
 
 ## Container log is noisy even without telemetry
 

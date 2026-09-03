@@ -12,7 +12,7 @@ rebuild → restart. See `docs/installing-extensions.md`.
 ## Fix
 
 Bind-mount the file to `/etc/allowed-domains.txt` in `run.sh` and drop it from
-both the `COPY` and `context_hash()`. Editing it then costs a container restart —
+both the `COPY` and `context_hash()`. Editing it then costs a container restart,
 or nothing at all, since the background refresher re-reads the file every 30s
 (`init-firewall.sh:43-49`) and would pick up new hosts on the next tick.
 

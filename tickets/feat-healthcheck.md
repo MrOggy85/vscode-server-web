@@ -1,7 +1,7 @@
 # Add a Docker `HEALTHCHECK`
 
-The image has no `HEALTHCHECK`, so `docker inspect .State.Status` — which is what
-`vsc ls` reports (`vsc:97`) — says `running` for a container whose `serve-web`
+The image has no `HEALTHCHECK`, so `docker inspect .State.Status`, which is what
+`vsc ls` reports (`vsc:97`), says `running` for a container whose `serve-web`
 process is wedged or never finished downloading the server.
 
 `--restart unless-stopped` (`run.sh:99`) also can't help with a hung-but-alive

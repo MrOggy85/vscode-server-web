@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# vsc — manage VS Code serve-web instances created by run.sh
+# vsc: manage VS Code serve-web instances created by run.sh
 #
 # An "instance" is a docker container named `vscode-<folder>-<hash>` (see run.sh).
 # Each instance mounts:
-#   - the project folder as a bind mount at /workspace  (your source code — never deleted here)
+#   - the project folder as a bind mount at /workspace  (your source code, never deleted here)
 #   - named volumes (vscode-cli, vscode-claude-credentials, vscode-extensions)
 #     which are SHARED across instances
 #
@@ -43,7 +43,7 @@ C_DIM='' C_VALUE='' C_OK='' C_WARN='' C_ALERT='' C_HEAD='' C_OFF=''
 E_DIM='' E_VALUE='' E_WARN='' E_FAIL='' E_OFF=''
 
 # Can the given fd render colour? Most explicit wins: NO_COLOR (no-color.org) is
-# the user saying never, CLICOLOR_FORCE the user saying always — the latter beats
+# the user saying never, CLICOLOR_FORCE the user saying always; the latter beats
 # a merely inferred inability, since TERM=dumb is an ambient default rather than
 # a considered choice. Absent both, believe the stream.
 _color_ok() { # <fd>
@@ -76,11 +76,11 @@ err()  { printf '%s\n' "$*" >&2; }
 # Indented continuation under a heading on stderr.
 cont() { printf '  %s\n' "$*" >&2; }
 die()  { printf '%s %s\n' "${E_FAIL}Error:${E_OFF}" "$*" >&2; exit 1; }
-# ">> <text>" — progress on stdout.
+# ">> <text>": progress on stdout.
 note() { printf '%s %s\n' "${C_DIM}>>${C_OFF}" "$*"; }
-# ">> <text>" in green — something finished, not just progress.
+# ">> <text>" in green: something finished, not just progress.
 ok()   { printf '%s %s%s%s\n' "${C_DIM}>>${C_OFF}" "$C_OK" "$*" "$C_OFF"; }
-# "<label>: <value>" on stderr — names a thing (container, volume, path).
+# "<label>: <value>" on stderr, naming a thing (container, volume, path).
 ekv() { # <label> <value> [hint]
   local line="$1: ${E_VALUE}$2${E_OFF}"
   [[ -n "${3:-}" ]] && line+="  ${E_DIM}($3)${E_OFF}"
@@ -225,7 +225,7 @@ remove_one_volume() { # <volume> <owning-container>
   local v="$1" name="$2" others
   others=$(volume_other_users "$v" "$name")
   if [[ -n "$others" && "${FORCE:-0}" != 1 ]]; then
-    cont "${E_WARN}skip${E_OFF} ${E_VALUE}${v}${E_OFF} ${E_DIM}(shared with: $(printf '%s' "$others" | paste -sd, -) — use --force to remove)${E_OFF}"
+    cont "${E_WARN}skip${E_OFF} ${E_VALUE}${v}${E_OFF} ${E_DIM}(shared with: $(printf '%s' "$others" | paste -sd, -) , use --force to remove)${E_OFF}"
     return 1
   fi
   if docker volume rm "$v" >/dev/null 2>&1; then
@@ -236,7 +236,7 @@ remove_one_volume() { # <volume> <owning-container>
   return 1
 }
 
-# ">> volumes removed: N, skipped: M" — green when nothing was skipped.
+# ">> volumes removed: N, skipped: M". Green when nothing was skipped.
 volume_tally() { # <removed> <skipped>
   if [[ "$2" == 0 ]]; then
     ok "volumes removed: $1, skipped: $2"
@@ -251,7 +251,7 @@ volume_tally() { # <removed> <skipped>
 #
 # The list is passed in rather than re-derived from the container: docker refuses
 # to remove a volume any container still references, so the owning container must
-# already be gone by the time this runs — and volumes_of() shells out to
+# already be gone by the time this runs, and volumes_of() shells out to
 # `docker inspect`, which returns nothing once it is.
 remove_volumes() { # <owning-container> <volume>...
   local name="$1"; shift
@@ -282,7 +282,7 @@ cmd_rm_volumes() {
 
   # The container has to go too. resolve_one only ever matches containers that
   # exist, so "remove the volumes but leave the instance" is not a state docker
-  # can be asked for — say so in the prompt rather than failing at the daemon.
+  # can be asked for; say so in the prompt rather than failing at the daemon.
   local v
   err "Volumes attached to ${E_VALUE}${name}${E_OFF}:"
   for v in "${vols[@]}"; do cont "${E_VALUE}${v}${E_OFF}"; done
@@ -330,11 +330,11 @@ cmd_destroy() {
 
 usage() {
   cat <<EOF
-${C_HEAD}vsc${C_OFF} — manage VS Code serve-web instances created by run.sh
+${C_HEAD}vsc${C_OFF}: manage VS Code serve-web instances created by run.sh
 
 An "instance" is a docker container named ${C_VALUE}vscode-<folder>-<hash>${C_OFF} (see run.sh).
 Each instance mounts the project folder as a bind mount at /workspace (your
-source code — never deleted here) plus named volumes (vscode-cli,
+source code, never deleted here) plus named volumes (vscode-cli,
 vscode-claude-credentials, vscode-extensions) which are SHARED across all
 instances.
 
