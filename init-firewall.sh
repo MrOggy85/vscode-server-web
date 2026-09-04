@@ -16,14 +16,19 @@ set -euo pipefail
 
 DOMAINS_FILE="/etc/allowed-domains.txt"
 
-# The allowed hosts are CDN-fronted and rotate their IPs *within* a session
-# (api.githubcopilot.com notably moves around GitHub's 140.82.112.0/20 block).
-# A one-shot resolution at startup therefore goes stale: a later connection hits
-# a freshly-rotated IP that was never added, and the reject rule below drops it.
-# A background loop re-resolves the allowlist every REFRESH_SECS and renews the
-# nft set. Set to 0 to disable the refresher (startup resolution only); that also
-# drops the element timeout below, since nothing would renew it.
-REFRESH_SECS=30
+# The allowed hosts are CDN-fronted and hand out different addresses on
+# successive queries, not merely when a TTL expires: 8 lookups of
+# update.code.visualstudio.com over a minute returned 4 distinct IPs, and
+# api.githubcopilot.com moves around GitHub's 140.82.112.0/20 block. A one-shot
+# resolution at startup goes stale within seconds.
+#
+# So this interval sets how much of each pool the set accumulates over an
+# element's lifetime, not just how stale it gets: 60 samples per 10m at 10s
+# against 20 at 30s. Lower costs process churn, roughly 80 spawns per cycle per
+# container across a 20-host allowlist. Set to 0 to disable the refresher
+# (startup resolution only); that also drops the element timeout below, since
+# nothing would renew it.
+REFRESH_SECS=10
 
 log() { echo "[firewall] $*" >&2; }
 
@@ -90,8 +95,9 @@ fi
 
 # Elements expire unless the refresher renews them, so an address that rotates
 # away from an allowed host stops being permitted instead of lasting the
-# container's lifetime. 10m is 20 refresh cycles of slack, so a transient DNS
-# failure does not cut egress. No refresher means no renewal, hence no timeout.
+# container's lifetime. 10m is 60 refresh cycles of slack, so a transient DNS
+# failure does not cut egress, and it is long enough to accumulate a CDN's pool
+# across many rotations. No refresher means no renewal, hence no timeout.
 SET_TIMEOUT=""
 if (( REFRESH_SECS > 0 )); then
   SET_TIMEOUT="
