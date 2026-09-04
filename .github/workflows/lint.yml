@@ -16,6 +16,7 @@ on:
       - 'README.md'
       - 'CLAUDE.md'
       - 'LICENSE'
+      - 'NOTICE'
   pull_request:
     paths-ignore:
       - 'docs/**'
@@ -23,6 +24,7 @@ on:
       - 'README.md'
       - 'CLAUDE.md'
       - 'LICENSE'
+      - 'NOTICE'
 
 permissions:
   contents: read
