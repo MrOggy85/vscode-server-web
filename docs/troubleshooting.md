@@ -49,3 +49,34 @@ Trade-off: this also hides the `Downloading server <commit>` progress lines that
 **Cause:** The extension package (`.vsix`) downloads from a per-publisher CDN host (`<publisher>.gallerycdn.vsassets.io`) that the outbound firewall refuses because it is not in `allowed-domains.txt`.
 
 **Fix:** Allowlist the publisher's download hosts and rebuild. See [docs/installing-extensions.md](installing-extensions.md).
+
+## `run.sh` refuses to start: port already published
+
+**Symptom:**
+
+```
+run.sh: port 24817 is already published by 'vscode-other-project-9f2c1a'
+run.sh: start this project on another port with --port N
+```
+
+**Cause:** the port is derived from a hash of the project path, so two projects can land on the same one. Uncommon (well under 1% across a few dozen projects) but permanent: that pair collides on every run, not intermittently.
+
+Your existing container is left alone. The check runs before `run.sh` removes anything, so nothing was destroyed.
+
+**Fix:** start one of them elsewhere:
+
+```bash
+./run.sh --port 24818 ~/code/thisproject
+```
+
+Move the project *without* an installed PWA if only one has one. A PWA's identity is its origin, so moving a project that has one means reinstalling it from the new URL.
+
+`--port` is not remembered. Wrap it if you need it permanently:
+
+```bash
+alias run-thisproject='~/path/to/run.sh --port 24818 ~/code/thisproject'
+```
+
+The port is deliberately never auto-incremented. Picking another one silently would leave an installed PWA opening whichever project now owns the old port, which is worse than refusing to start.
+
+**Related:** a container stuck at `restarting` in `vsc ls` that never comes up can be the same collision reached another way. Two containers can both be *configured* for one port if one was stopped when the other was created; a host reboot then starts both and the loser cannot bind. `vsc logs <selector>` shows the bind error. Recreate one with `--port N`.

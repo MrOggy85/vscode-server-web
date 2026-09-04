@@ -144,6 +144,23 @@ echo ">> ext volume: ${EXTENSIONS_VOLUME}"
 echo ">> port:       ${PORT}"
 echo ">> project:    ${PROJECT_NAME}"
 
+# Checked before the container is removed, not after. A clash is always with a
+# different project, since our own container frees its port on removal, so
+# without this a collision destroys a healthy instance and then aborts on
+# docker's "port is already allocated".
+#
+# Not auto-incremented on purpose: the port is derived from the project path and
+# has to stay fixed, because an installed PWA's identity is its origin. Silently
+# moving to another port would leave that PWA opening whichever project owns the
+# old one.
+port_holder="$(docker ps --format '{{.Names}}' --filter "publish=${PORT}" 2>/dev/null \
+               | grep -vx "$CONTAINER" | head -n1)" || true
+if [[ -n "$port_holder" ]]; then
+  echo "run.sh: port ${PORT} is already published by '${port_holder}'" >&2
+  echo "run.sh: start this project on another port with --port N" >&2
+  exit 1
+fi
+
 echo ">> killing any running container..."
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
@@ -206,7 +223,14 @@ docker run -d \
   --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add SETUID --cap-add SETGID \
   --cap-add NET_ADMIN \
   --security-opt no-new-privileges:true \
-  "$IMAGE" >/dev/null
+  "$IMAGE" >/dev/null || {
+    # The pre-flight above only sees Docker. A non-Docker process on the port
+    # cannot be told apart from our own container's listener before removal, so
+    # it surfaces here instead.
+    echo "run.sh: failed to start ${CONTAINER}" >&2
+    echo "run.sh: if port ${PORT} is held by a non-Docker process, retry with --port N" >&2
+    exit 1
+  }
 
 URL="http://127.0.0.1:${PORT}/?folder=/workspace"
 echo ">> Container started."
