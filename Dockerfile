@@ -102,4 +102,18 @@ RUN chmod +x /usr/local/bin/init-firewall.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Without this, `docker inspect .State.Status` reports running for any container
+# whose PID exists, so vsc ls cannot tell a working instance from a dead server.
+#
+# $PORT expands at check time, not build time: HEALTHCHECK is not one of the
+# instructions Docker substitutes into.
+#
+# start-period is long because the entrypoint resolves the whole allowlist
+# synchronously before exec'ing the server, and dig waits up to 5s per host.
+#
+# Catches: process gone, not listening, erroring. Does not catch a server stuck
+# fetching its bundle, since the CLI serves a page during that.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=3 \
+  CMD curl -sf -o /dev/null "http://127.0.0.1:$PORT/" || exit 1
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

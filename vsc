@@ -97,17 +97,28 @@ instances() {
     | while IFS= read -r n; do [[ "$n" == ${PREFIX}* ]] && printf '%s\n' "$n"; done
 }
 
-status_of() { docker inspect "$1" --format '{{.State.Status}}' 2>/dev/null || echo unknown; }
+# Health when the image reports it, otherwise the raw state. `running` only means
+# the PID exists, which is why the image carries a HEALTHCHECK. Health is ignored
+# unless the container is running, since a stopped one keeps its last verdict.
+# One inspect, both fields.
+status_of() {
+  local out st health
+  out=$(docker inspect "$1" --format \
+        '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{end}}' 2>/dev/null) \
+    || { echo unknown; return; }
+  read -r st health <<< "$out"
+  if [[ "$st" == "running" && -n "${health:-}" ]]; then echo "$health"; else echo "$st"; fi
+}
 
 # Colour for a container status. `exited` is dim, not red: a stopped instance is
 # the normal resting state here, not a failure. Red is reserved for `dead`, which
-# means the daemon could not clean it up.
+# means the daemon could not clean it up, and `unhealthy`.
 status_color() { # <status>
   case "$1" in
-    running)                   printf '%s' "$C_OK";;
-    dead)                      printf '%s' "$C_ALERT";;
-    created|paused|restarting) printf '%s' "$C_WARN";;
-    *)                         printf '%s' "$C_DIM";;
+    running|healthy)                    printf '%s' "$C_OK";;
+    dead|unhealthy)                     printf '%s' "$C_ALERT";;
+    created|paused|restarting|starting) printf '%s' "$C_WARN";;
+    *)                                  printf '%s' "$C_DIM";;
   esac
 }
 

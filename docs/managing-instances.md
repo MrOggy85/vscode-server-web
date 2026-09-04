@@ -28,9 +28,20 @@ protects the shared volumes.
 
 Output is colour-coded: cyan for the thing being named (container, volume,
 path), green for a completed action, yellow for a skip, bold red for an error,
-dim for structure and hints. In `vsc ls` the status column is green for
-`running`, yellow for `created`/`paused`/`restarting`, red for `dead`, dim
-otherwise.
+dim for structure and hints.
+
+In `vsc ls` the STATUS column reports **health** rather than state while a
+container is running, so `healthy`, `starting` or `unhealthy` instead of
+`running`. That distinction is the point: `running` only means the process
+exists, which says nothing about whether the server answers. A plain `running`
+means the image predates the `HEALTHCHECK`. Green for `running`/`healthy`,
+yellow for `starting` and other transitional states, bold red for
+`unhealthy`/`dead`, dim otherwise.
+
+The check fetches `/` from inside the container, so it catches a dead, deaf or
+erroring server. It will not catch one stuck fetching its bundle, because the
+CLI serves a page throughout that (see
+[vscode-quirks.md](vscode-quirks.md)).
 
 Colour is decided per stream, so `vsc ls | less` drops it from the table while
 warnings on the still-attached stderr keep it. `NO_COLOR=1` (or `--no-color`)
