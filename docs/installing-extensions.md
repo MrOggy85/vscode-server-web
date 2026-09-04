@@ -70,6 +70,16 @@ you must add the specific publisher hosts for each extension you install.
    ./run.sh /path/to/project
    ```
 
-If you install many extensions, the per-publisher limitation is worth raising
-with whoever owns the firewall: a proxy exception for `*.vsassets.io` would
-remove the need to allowlist each publisher by hand.
+### Why this needs a rebuild
+
+`allowed-domains.txt` is `COPY`d into the image rather than mounted, so an edit
+only reaches the container through `docker build`. Mounting it would make edits
+apply to a running container within one refresh cycle, which was considered and
+rejected: baking it in keeps the file in the build-context hash, so `run.sh`
+rebuilds by itself when you change it and a running container can never disagree
+with the image it came from. The cost is a full rebuild for a one-line change.
+
+That trade is only comfortable because adding a publisher is rare. If you find
+yourself doing it often, the per-publisher limitation is the strongest argument
+for replacing the IP allowlist with a hostname-based egress proxy, which could
+express `*.vsassets.io` as one rule. Tracked as issue #2.
