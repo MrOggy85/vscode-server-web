@@ -60,6 +60,34 @@ channels above, which are faster and bidirectional; DNS tunnelling is the
 fallback when nothing else is reachable. The serious half, a direct two-way
 tunnel to any nameserver on the internet, is closed.
 
+## A concurrent extension install can be lost from the registry
+
+**Applies to:** only when `keybindings.json` is mounted, since nothing else makes
+the entrypoint touch the registry.
+
+`extensions.json` in the shared `vscode-extensions` volume lists the installed
+extensions. At startup the entrypoint reads it, adds the generated keybindings
+extension, and writes the whole file back. Anything that changes the file in the
+few hundredths of a second between that read and write is overwritten, because
+the write is based on the copy read a moment earlier.
+
+In practice that means installing an extension in one instance at the same moment
+another instance starts. The newly installed extension disappears from the
+Extensions view.
+
+**Why it is not fixed:** a lock would only serialise this repo's own entrypoints
+against each other, which needs two `./run.sh` invocations inside the same
+fraction of a second and is not reachable by hand. It cannot help against the
+case that actually occurs, because the VS Code server writes the file too and
+does not participate in any locking scheme added here. The mitigations that would
+help, skipping the write when the content is unchanged and swapping the file in
+atomically, are real but add moving parts to a startup path for something this
+rare. See also the auto-update warning in
+[sharing-extensions.md](sharing-extensions.md).
+
+**If you hit it:** reinstall the extension. Only its registry entry is lost; the
+extension's files are still in the volume.
+
 ## Mounted `settings.json` changes owner under `VSCODE_MATCH_HOST_UID=0`
 
 **Applies to:** native Linux Docker, and only with `VSCODE_MATCH_HOST_UID=0` set.
