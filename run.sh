@@ -212,9 +212,12 @@ URL="http://127.0.0.1:${PORT}/?folder=/workspace"
 echo ">> Container started."
 echo ">> Open: $URL"
 
-# Open the browser automatically (macOS uses `open`, Linux uses `xdg-open`).
+# Delegated to `vsc open` so the PWA lookup has one home. Falls back to the plain
+# URL if vsc is missing, since run.sh is otherwise standalone.
 if [[ "$NO_OPEN" == 0 ]]; then
-  if command -v open >/dev/null 2>&1; then
+  if [ -x "${SCRIPT_DIR}/vsc" ]; then
+    "${SCRIPT_DIR}/vsc" open "$CONTAINER" >/dev/null 2>&1 || true
+  elif command -v open >/dev/null 2>&1; then
     open "$URL" 2>/dev/null || true
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open "$URL" 2>/dev/null || true

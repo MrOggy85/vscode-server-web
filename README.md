@@ -106,7 +106,7 @@ Set `VSCODE_MATCH_HOST_UID=0` to go back to the fixed internal `1000:1000`.
 
 ## Managing instances
 
-`./vsc` lists, stops, and tears down running instances and their volumes. See [docs/managing-instances.md](docs/managing-instances.md).
+`./vsc` lists instances, reopens them (`vsc open`, which launches the installed PWA when there is one), tails their logs, restarts them in place, and tears them down. See [docs/managing-instances.md](docs/managing-instances.md).
 
 ## Claude Code
 

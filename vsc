@@ -144,6 +144,27 @@ volumes_of() {
     '{{range .Mounts}}{{if eq .Type "volume"}}{{println .Name}}{{end}}{{end}}' 2>/dev/null
 }
 
+running_of() { docker inspect "$1" --format '{{.State.Running}}' 2>/dev/null || echo false; }
+
+# The URL run.sh prints. /workspace is fixed by the container layout.
+instance_url() { printf 'http://127.0.0.1:%s/?folder=/workspace' "$(port_of "$1")"; }
+
+# macOS PWA installed from this instance, if one exists. Brave and Chrome name
+# the bundle after the web manifest, which entrypoint.sh rewrites to
+# "<project> VSCode" with an em dash between; the literal below has to match it.
+# Opening the bundle reuses the saved window instead of a plain browser tab.
+pwa_app() { # <container>
+  local proj dir app
+  proj=$(basename "$(folder_of "$1")" 2>/dev/null) || return 1
+  [[ -n "$proj" ]] || return 1
+  for dir in "$HOME/Applications/Brave Browser Apps.localized" \
+             "$HOME/Applications/Chrome Apps.localized"; do
+    app="${dir}/${proj} — VSCode.app"
+    [[ -d "$app" ]] && { printf '%s' "$app"; return 0; }
+  done
+  return 1
+}
+
 # Other containers (any name) currently attached to a volume, excluding $2.
 volume_other_users() {
   docker ps -a --filter "volume=$1" --format '{{.Names}}' \
@@ -339,6 +360,57 @@ cmd_destroy() {
   remove_volumes "$name" ${vols[@]+"${vols[@]}"}
 }
 
+cmd_url() {
+  [[ $# -ge 1 ]] || die "usage: vsc url <selector>"
+  local name; name=$(resolve_one "$1")
+  printf '%s\n' "$(instance_url "$name")"
+}
+
+cmd_open() {
+  [[ $# -ge 1 ]] || die "usage: vsc open <selector>"
+  local name url app
+  name=$(resolve_one "$1")
+  [[ "$(running_of "$name")" == "true" ]] \
+    || die "$name is not running (start it with ./run.sh <folder>)"
+  url=$(instance_url "$name")
+
+  if app=$(pwa_app "$name"); then
+    note "opening ${C_VALUE}$(basename "$app")${C_OFF}"
+    open "$app"
+  elif command -v open >/dev/null 2>&1; then
+    note "opening ${C_VALUE}${url}${C_OFF}"
+    open "$url"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    note "opening ${C_VALUE}${url}${C_OFF}"
+    xdg-open "$url"
+  else
+    note "$url"
+  fi
+}
+
+# -f is --force globally, which means nothing for logs, so it doubles as
+# --follow here. Typing `vsc logs x -f` and getting a plain dump would be worse
+# than the overload.
+cmd_logs() {
+  [[ $# -ge 1 ]] || die "usage: vsc logs <selector> [--follow]"
+  local name; name=$(resolve_one "$1")
+  if [[ "${FORCE:-0}" == 1 || "${FOLLOW:-0}" == 1 ]]; then
+    docker logs -f "$name"
+  else
+    docker logs "$name"
+  fi
+}
+
+# Re-runs the entrypoint without recreating the container, so it picks up an
+# edited keybindings.json and rescans the shared extensions volume. Image changes
+# still need ./run.sh, which rebuilds.
+cmd_restart() {
+  [[ $# -ge 1 ]] || die "usage: vsc restart <selector>"
+  local name; name=$(resolve_one "$1")
+  docker restart "$name" >/dev/null
+  ok "restarted $name"
+}
+
 usage() {
   cat <<EOF
 ${C_HEAD}vsc${C_OFF}: manage VS Code serve-web instances created by run.sh
@@ -351,6 +423,10 @@ instances.
 
 ${C_HEAD}Commands:${C_OFF}
   ${C_VALUE}vsc ls${C_OFF}                      list instances (status, port, folder, volumes)
+  ${C_VALUE}vsc open${C_OFF}       <selector>   open the instance: its installed PWA if there is one, else the URL
+  ${C_VALUE}vsc url${C_OFF}        <selector>   print the instance URL
+  ${C_VALUE}vsc logs${C_OFF}       <selector>   docker logs; -f or --follow to follow
+  ${C_VALUE}vsc restart${C_OFF}    <selector>   restart in place, picking up mounted file changes
   ${C_VALUE}vsc stop${C_OFF}       <selector>   stop and remove a running instance (container only)
   ${C_VALUE}vsc rm-volumes${C_OFF} <selector>   remove an instance and ALL its volumes, shared included
   ${C_VALUE}vsc destroy${C_OFF}    <selector>   remove an instance, keeping the shared volumes
@@ -364,6 +440,7 @@ name or the project folder name. Ambiguous matches are rejected.
 ${C_HEAD}Flags:${C_OFF}
   -y, --yes      skip confirmation prompts
   -f, --force    (rm-volumes/destroy) also remove volumes shared with other instances
+      --follow   (logs) follow the log; -f does the same
       --no-color disable colour (NO_COLOR=1 does the same)
 EOF
 }
@@ -372,14 +449,16 @@ EOF
 
 ASSUME_YES=0
 FORCE=0
+FOLLOW=0
 declare -a POS=()
 for a in "$@"; do
   case "$a" in
-    -y|--yes)   ASSUME_YES=1;;
-    -f|--force) FORCE=1;;
-    --no-color) NO_COLOR=1; color_init;;
-    -h|--help)  usage; exit 0;;
-    *)          POS+=("$a");;
+    -y|--yes)    ASSUME_YES=1;;
+    -f|--force)  FORCE=1;;
+    --follow)    FOLLOW=1;;
+    --no-color)  NO_COLOR=1; color_init;;
+    -h|--help)   usage; exit 0;;
+    *)           POS+=("$a");;
   esac
 done
 
@@ -394,6 +473,10 @@ require_docker
 
 case "$cmd" in
   ls|list)            cmd_ls;;
+  open)               cmd_open "${rest[@]+"${rest[@]}"}";;
+  url)                cmd_url "${rest[@]+"${rest[@]}"}";;
+  logs|log)           cmd_logs "${rest[@]+"${rest[@]}"}";;
+  restart)            cmd_restart "${rest[@]+"${rest[@]}"}";;
   stop|rm)            cmd_stop "${rest[@]+"${rest[@]}"}";;
   rm-volumes|volumes) cmd_rm_volumes "${rest[@]+"${rest[@]}"}";;
   destroy)            cmd_destroy "${rest[@]+"${rest[@]}"}";;

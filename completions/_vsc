@@ -32,6 +32,10 @@ _vsc() {
   local -a cmds
   cmds=(
     'ls:list instances (status, port, folder, volumes)'
+    'open:open the instance: its installed PWA if there is one, else the URL'
+    'url:print the instance URL'
+    'logs:docker logs; -f or --follow to follow'
+    'restart:restart in place, picking up mounted file changes'
     'stop:stop and remove a running instance (container only)'
     'rm-volumes:remove an instance and ALL its volumes, shared included'
     'destroy:remove an instance, keeping the shared volumes'
@@ -40,7 +44,8 @@ _vsc() {
 
   _arguments -C \
     '(-y --yes)'{-y,--yes}'[skip confirmation prompts]' \
-    '(-f --force)'{-f,--force}'[also attempt volumes shared with other instances]' \
+    '(-f --force)'{-f,--force}'[also attempt volumes shared with other instances; follow, for logs]' \
+    '--follow[(logs) follow the log]' \
     '--no-color[disable colour output]' \
     '(-h --help)'{-h,--help}'[show usage]' \
     '1: :->cmd' \
@@ -52,7 +57,7 @@ _vsc() {
       ;;
     args)
       case ${line[1]} in
-        stop|rm|rm-volumes|volumes|destroy)
+        open|url|logs|log|restart|stop|rm|rm-volumes|volumes|destroy)
           _vsc_instances
           ;;
       esac

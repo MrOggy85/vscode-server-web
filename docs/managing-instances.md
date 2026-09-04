@@ -24,6 +24,28 @@ protects the shared volumes.
 
 `./vsc --help` lists the commands, the selector syntax and the flags.
 
+### Getting back to a running instance
+
+`./vsc open <selector>` is the one to reach for. `run.sh` prints the URL once at
+start and then it is gone from the scrollback; re-running `run.sh` to recover it
+destroys a healthy container and rebuilds. `open` reuses the one already running.
+
+If a PWA was installed from that instance, `open` launches the app bundle instead
+of a browser tab, so you land in the saved window. It looks under
+`~/Applications/Brave Browser Apps.localized` and the Chrome equivalent, for a
+bundle named after the instance. That name comes from the web manifest, which
+`entrypoint.sh` rewrites to the project name; renaming the app breaks the match.
+Absent a bundle, it opens the URL.
+
+`run.sh` calls `vsc open` for its own opening step, so both behave the same.
+
+### Restart versus re-run
+
+`./vsc restart` re-runs the entrypoint without recreating the container, which
+regenerates the keybindings extension and rescans the shared extensions volume.
+That covers anything **mounted**. Anything **baked into the image** needs
+`./run.sh`, which rebuilds. The README's Usage section lists which is which.
+
 ## Colour
 
 Output is colour-coded: cyan for the thing being named (container, volume,
