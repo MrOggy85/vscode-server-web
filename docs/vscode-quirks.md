@@ -90,3 +90,29 @@ Notes:
 - `keybindings.json` is parsed as **strict JSON** (via `jq`); no `//` comments.
 - Because the extensions directory is shared, the generated extension persists there. Removing `keybindings.json` stops it being regenerated but does not uninstall it. Delete `local.container-keybindings-1.0.0` from the `vscode-extensions` volume (or uninstall it from the Extensions view) to drop the bindings.
 - Contributed keybindings sit at default-keybinding priority. A binding the user sets in the browser-stored profile for the same key still wins; this is for shared defaults across containers, not for overriding per-user choices.
+
+## Search skips gitignored sub-repositories
+
+**Symptom:** A workspace holds checkouts of other repos, gitignored so their changes stay out of the parent's diff:
+
+```gitignore
+/vnext-web
+/vnext-game-backend
+```
+
+That works for git, but search returns nothing from inside them. The Explorer still lists them, so it looks like a search bug.
+
+**Cause:** VS Code search is ripgrep, and `search.useIgnoreFiles` (on by default) makes it honour `.gitignore`. Moving the entries to `.git/info/exclude` does not help: ripgrep reads that too.
+
+**Fix:** Add a `.ignore` file next to `.gitignore`, negating each sub-repo:
+
+```gitignore
+!/vnext-web
+!/vnext-game-backend
+```
+
+Ripgrep ranks `.ignore` above `.gitignore`, so the negation wins. Git never reads `.ignore`, so the parent diff stays clean.
+
+Each sub-repo's own `.gitignore` still applies, so its `node_modules` stays out of results. That is the advantage over `"search.useIgnoreFiles": false`, which also restores the sub-repos but by switching off every ignore rule everywhere.
+
+Claude Code honours `.gitignore` for its own searches too, so the same file widens what it can see.
